@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-theme="black">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beaver Dam - Developer & PWA Studio</title>
+
+    <!-- PWA & Theme Integration -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for clean iconography -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- CryptoJS for offline cryptographic hashes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        :root {
+            --accent-color: #10b981;
+            --page-bg: #000000;
+            --page-fg: #f1f5f9;
+            --panel-bg: #18181b;
+            --bar-bg: rgba(0, 0, 0, 0.95);
+            --nav-bg: #09090b;
+            --bar-border: #27272a;
+        }
+        [data-theme="dark"] {
+            --page-bg: #0f172a;
+            --panel-bg: #1e293b;
+            --bar-bg: rgba(15, 23, 42, 0.95);
+            --nav-bg: #020617;
+            --bar-border: #1e293b;
+        }
+        [data-theme="light"] {
+            --page-bg: #f1f5f9;
+            --page-fg: #1e293b;
+            --panel-bg: #ffffff;
+            --bar-bg: rgba(255, 255, 255, 0.95);
+            --nav-bg: #e2e8f0;
+            --bar-border: #cbd5e1;
+        }
+
+        body { background-color: var(--page-bg); color: var(--page-fg); }
+        .panel-bg { background-color: var(--panel-bg); }
+        .app-header { background-color: var(--bar-bg); border-color: var(--bar-border); }
+        .app-nav { background-color: var(--nav-bg); border-color: var(--bar-border); }
+        .tab-btn.active { border-color: var(--accent-color); }
+
+        .accent-text { color: var(--accent-color) !important; }
+        .accent-bg { background-color: var(--accent-color) !important; }
+        .accent-border { border-color: var(--accent-color) !important; }
+        input[type=range], input[type=checkbox] { accent-color: var(--accent-color); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Light theme adjustments */
+        [data-theme="light"] .bg-black,
+        [data-theme="light"] .bg-black\/40,
+        [data-theme="light"] .bg-black\/50 { background-color: #f1f5f9; }
+        [data-theme="light"] .bg-zinc-800 { background-color: #e2e8f0; }
+        [data-theme="light"] .bg-zinc-900,
+        [data-theme="light"] .bg-zinc-900\/40 { background-color: #f8fafc; }
+        [data-theme="light"] .hover\:bg-zinc-700:hover { background-color: #cbd5e1; }
+        [data-theme="light"] .border-zinc-800,
+        [data-theme="light"] .border-zinc-700 { border-color: #cbd5e1; }
+        [data-theme="light"] .text-white:not(.accent-bg),
+        [data-theme="light"] .text-zinc-100,
+        [data-theme="light"] .text-zinc-200,
+        [data-theme="light"] .text-zinc-300 { color: #1e293b; }
+        [data-theme="light"] .text-zinc-400,
+        [data-theme="light"] .text-zinc-500 { color: #64748b; }
+        [data-theme="light"] .accent-bg { color: #ffffff; }
+    </style>
+</head>
+<body id="appBody" class="min-h-screen flex flex-col font-sans transition-colors duration-200 select-none pb-28">
+
+    <!-- TOP HEADER -->
+    <header id="appHeader" class="app-header sticky top-0 z-35 backdrop-blur-md border-b px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <img src="small-icon.png" alt="Logo" class="w-9 h-9 rounded-full object-cover border border-zinc-700 shadow-sm" onerror="this.src='icon.png'"/>
+            <div>
+                <h1 id="appTitleHeader" class="text-base font-bold tracking-tight leading-none text-emerald-400">BEAVER DAM</h1>
+                <p class="text-[10px] text-zinc-400 font-medium">Developer & PWA Studio</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button id="openSettingsBtn" aria-label="Open settings" class="p-2.5 rounded-xl text-zinc-300 hover:bg-zinc-800/50 transition">
+                <i class="fa-solid fa-gear text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <nav id="appNav" class="app-nav border-b px-4 pt-2">
+        <div class="flex space-x-1 sm:space-x-2 overflow-x-auto no-scrollbar max-w-4xl mx-auto" id="navTabs">
+            <button data-tab="ide" class="tab-btn active px-4 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 accent-text flex items-center space-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-code"></i> <span>Code IDE</span>
+            </button>
+            <button data-tab="pwa" class="tab-btn px-4 py-2.5 text-xs font-medium rounded-t-lg text-zinc-400 hover:text-zinc-200 flex items-center space-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-icons"></i> <span>PWA Studio</span>
+            </button>
+            <button data-tab="crypto" class="tab-btn px-4 py-2.5 text-xs font-medium rounded-t-lg text-zinc-400 hover:text-zinc-200 flex items-center space-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-key"></i> <span>Crypto & Hashes</span>
+            </button>
+            <button data-tab="inspector" class="tab-btn px-4 py-2.5 text-xs font-medium rounded-t-lg text-zinc-400 hover:text-zinc-200 flex items-center space-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-microchip"></i> <span>Inspector</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- TOAST -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-xl bg-zinc-800 text-zinc-100 text-xs font-medium shadow-xl border border-zinc-700 max-w-[90vw] text-center"></div>
+
+    <!-- MAIN VIEW AREA -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-4">
+
+        <!-- TAB 1: CODE & MANIFEST IDE -->
+        <section id="view-ide" class="tab-view space-y-4">
+            <div class="panel-bg p-4 rounded-3xl border border-zinc-800 shadow-sm space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
+                    <div class="flex items-center space-x-1.5 bg-black p-1 rounded-xl border border-zinc-800">
+                        <button data-file="index.html" class="ide-file-btn px-3 py-1.5 text-xs font-semibold rounded-lg accent-bg text-white transition">index.html</button>
+                        <button data-file="app.js" class="ide-file-btn px-3 py-1.5 text-xs font-medium rounded-lg text-zinc-400 hover:text-white transition">app.js</button>
+                        <button data-file="manifest.json" class="ide-file-btn px-3 py-1.5 text-xs font-medium rounded-lg text-zinc-400 hover:text-white transition">manifest.json</button>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button id="btnLoadPreset" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-xl transition" title="Load default PWA shell template">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Preset
+                        </button>
+                        <button id="btnPreviewCode" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-xl transition">
+                            <i class="fa-solid fa-play mr-1"></i> Preview
+                        </button>
+                        <button id="btnDownloadFile" class="px-3 py-1.5 accent-bg text-white text-xs font-semibold rounded-xl shadow-md transition">
+                            <i class="fa-solid fa-download mr-1"></i> Export
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <textarea id="ideCodeArea" rows="15" class="w-full p-3 bg-black border border-zinc-800 rounded-2xl text-xs text-zinc-200 font-mono focus:outline-none focus:border-emerald-500 leading-relaxed resize-none"></textarea>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: PWA ICON & ASSET STUDIO -->
+        <section id="view-pwa" class="tab-view hidden space-y-4">
+            <div class="panel-bg p-4 sm:p-6 rounded-3xl border border-zinc-800 shadow-sm space-y-4">
+                <div>
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-icons accent-text"></i> PWA Icon Resizer & Meta Snippet Generator
+                    </h2>
+                    <p class="text-xs text-zinc-400 mt-0.5">Drop an image to render standard PWA icon sizes directly on client-side canvas.</p>
+                </div>
+
+                <!-- Image Uploader & Resizer -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                    <div class="space-y-3">
+                        <label class="block text-xs font-semibold text-zinc-300">Select Base Image (`icon.png` / 512x512 recommended)</label>
+                        <input type="file" id="pwaIconInput" accept="image/*" class="w-full text-xs text-zinc-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-white hover:file:bg-zinc-700 cursor-pointer">
+                    </div>
+                    <div id="pwaIconPreview" class="flex items-center justify-center p-3 bg-black border border-zinc-800 rounded-2xl min-h-[100px]">
+                        <span class="text-xs text-zinc-500">No image loaded yet</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2 pt-2 border-t border-zinc-800">
+                    <button id="btnExport192" disabled class="px-3 py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl transition disabled:opacity-40">Export 192x192 PNG</button>
+                    <button id="btnExport512" disabled class="px-3 py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl transition disabled:opacity-40">Export 512x512 PNG</button>
+                    <button id="btnExportApple" disabled class="px-3 py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl transition disabled:opacity-40">Export Apple Touch Icon</button>
+                </div>
+
+                <!-- Meta Tags Generator -->
+                <div class="space-y-2 pt-3 border-t border-zinc-800">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-semibold text-zinc-300">Generated PWA Meta HTML Tags</label>
+                        <button id="btnCopyMetaTags" class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold rounded-lg transition"><i class="fa-solid fa-copy mr-1"></i> Copy</button>
+                    </div>
+                    <textarea id="pwaMetaOutput" rows="5" readonly class="w-full p-3 bg-black border border-zinc-800 rounded-2xl text-xs text-emerald-400 font-mono focus:outline-none leading-relaxed select-all"></textarea>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: CRYPTO, HASH & TOKEN STUDIO -->
+        <section id="view-crypto" class="tab-view hidden space-y-4">
+            <div class="panel-bg p-4 sm:p-6 rounded-3xl border border-zinc-800 shadow-sm space-y-4">
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-key accent-text"></i> Hashes, Encoding & Security Tokens
+                </h2>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-zinc-300">String Input</label>
+                        <input type="text" id="cryptoInput" placeholder="Enter text to hash or encode..." class="w-full px-3 py-2 bg-black border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 font-mono">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div class="space-y-1">
+                            <span class="font-semibold text-zinc-400">SHA-256 Hash</span>
+                            <div class="flex gap-1">
+                                <input type="text" id="outSha256" readonly class="w-full px-2.5 py-1.5 bg-black border border-zinc-800 rounded-lg text-emerald-400 font-mono text-[11px]">
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="font-semibold text-zinc-400">MD5 Hash</span>
+                            <div class="flex gap-1">
+                                <input type="text" id="outMd5" readonly class="w-full px-2.5 py-1.5 bg-black border border-zinc-800 rounded-lg text-emerald-400 font-mono text-[11px]">
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="font-semibold text-zinc-400">Base64 Encoded</span>
+                            <div class="flex gap-1">
+                                <input type="text" id="outBase64" readonly class="w-full px-2.5 py-1.5 bg-black border border-zinc-800 rounded-lg text-emerald-400 font-mono text-[11px]">
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="font-semibold text-zinc-400">URL Encoded</span>
+                            <div class="flex gap-1">
+                                <input type="text" id="outUrlEnc" readonly class="w-full px-2.5 py-1.5 bg-black border border-zinc-800 rounded-lg text-emerald-400 font-mono text-[11px]">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Random UUID & Token Generator -->
+                <div class="pt-3 border-t border-zinc-800 space-y-3">
+                    <label class="block text-xs font-semibold text-zinc-300">Random Token & UUID Generator</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="btnGenUuid" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-semibold transition">Generate UUID v4</button>
+                        <button id="btnGenSecret" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-semibold transition">Generate 32-Byte Hex Key</button>
+                    </div>
+                    <input type="text" id="tokenOutput" readonly placeholder="Generated token will appear here..." class="w-full px-3 py-2 bg-black border border-zinc-800 rounded-xl text-xs text-emerald-400 font-mono select-all">
+                </div>
+
+                <!-- Chmod Permissions Calculator -->
+                <div class="pt-3 border-t border-zinc-800 space-y-2">
+                    <label class="block text-xs font-semibold text-zinc-300">Linux Chmod Calculator</label>
+                    <div class="grid grid-cols-3 gap-2 text-xs text-zinc-300 bg-black p-3 rounded-2xl border border-zinc-800">
+                        <div>
+                            <span class="font-bold block mb-1 text-zinc-400">Owner</span>
+                            <label class="block"><input type="checkbox" class="chmod-chk" data-val="400"> Read (4)</label>
+                            <label class="block"><input type="checkbox" class="chmod-chk" data-val="200"> Write (2)</label>
+                            <label class="block"><input type="checkbox" class="chmod-chk" data-val="100"> Execute (1)</label>
+                        </div>
+                        <div>
+                            <span class="font-bold block mb-1 text-zinc-400">Group</span>
+                            <label class="block"><input type="checkbox" class="chmod-chk" data-val="40"> Read (4)</label>
+                            <label class="block"><input type="checkbox" class="chmod-chk" data-val="20"> Write (2)</label>
+                            <label class="block"><input type="checkbox" class="chmod-chk" data-val="10"> Execute (1)</label>
+                        </div>
+                        <div>
+                            <span class="font-bold block mb-1 text-zinc-400">Others</span>
+                            <label class="block"><input type="checkbox" class="chmod-chk" data-val="4"> Read (4)</label>
+                            <label class="block"><input type="checkbox" class="chmod-chk" data-val="2"> Write (2)</label>
+                            <label class="block"><input type="checkbox" class="chmod-chk" data-val="1"> Execute (1)</label>
+                        </div>
+                    </div>
+                    <p class="text-xs text-zinc-400">Calculated Octal: <span id="chmodResult" class="font-mono accent-text font-bold text-sm">000</span></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: DEVICE & INSPECTOR SANDBOX -->
+        <section id="view-inspector" class="tab-view hidden space-y-4">
+            <div class="panel-bg p-4 sm:p-6 rounded-3xl border border-zinc-800 shadow-sm space-y-4">
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-microchip accent-text"></i> Screen, Storage & Environment Inspector
+                </h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div class="bg-black p-3 rounded-2xl border border-zinc-800 space-y-1">
+                        <span class="font-bold text-zinc-400 block border-b border-zinc-800 pb-1">Viewport & Screen</span>
+                        <p>Inner Window: <span id="specViewport" class="font-mono text-emerald-400"></span></p>
+                        <p>Screen Resolution: <span id="specScreen" class="font-mono text-emerald-400"></span></p>
+                        <p>Device Pixel Ratio (DPR): <span id="specDpr" class="font-mono text-emerald-400"></span></p>
+                        <p>Touch Support: <span id="specTouch" class="font-mono text-emerald-400"></span></p>
+                    </div>
+
+                    <div class="bg-black p-3 rounded-2xl border border-zinc-800 space-y-1">
+                        <span class="font-bold text-zinc-400 block border-b border-zinc-800 pb-1">Storage Quota & State</span>
+                        <p>LocalStorage Keys: <span id="specLsCount" class="font-mono text-emerald-400"></span></p>
+                        <p>Estimated Usage: <span id="specStorageUsage" class="font-mono text-emerald-400">Calculating...</span></p>
+                        <p>Online Status: <span id="specOnline" class="font-mono text-emerald-400"></span></p>
+                    </div>
+                </div>
+
+                <!-- JSON Formatter & Minifier -->
+                <div class="pt-3 border-t border-zinc-800 space-y-2">
+                    <label class="block text-xs font-semibold text-zinc-300">Quick JSON Formatter & Validator</label>
+                    <textarea id="jsonInput" rows="4" placeholder="Paste unformatted or stringified JSON here..." class="w-full p-3 bg-black border border-zinc-800 rounded-2xl text-xs text-zinc-200 font-mono focus:outline-none focus:border-emerald-500 leading-relaxed resize-none"></textarea>
+                    <div class="flex gap-2">
+                        <button id="btnFormatJson" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold rounded-xl transition">Beautify JSON</button>
+                        <button id="btnMinifyJson" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold rounded-xl transition">Minify JSON</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="panel-bg w-full max-w-sm rounded-3xl p-6 border border-zinc-800 shadow-2xl space-y-5 text-center relative">
+            <button class="closeModalBtn absolute top-4 right-4 text-zinc-400 hover:text-white text-lg" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <img src="icon.png" alt="Beaver Dam Logo" class="w-32 h-32 mx-auto rounded-2xl object-cover border-2 border-zinc-700 shadow-lg mb-2" onerror="this.src='small-icon.png'"/>
+
+            <h3 class="text-base font-bold text-white">Beaver Dam Settings</h3>
+            <p class="text-xs text-zinc-400">Customize theme and accent color</p>
+
+            <div class="bg-black/50 p-3 rounded-2xl border border-zinc-800 space-y-2 text-left">
+                <span class="text-xs font-semibold text-zinc-300">App Background Theme</span>
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                    <button onclick="setAppTheme('black')" id="themeBtn-black" class="py-1.5 px-2 rounded-xl text-xs font-medium bg-zinc-900 border border-zinc-700 text-white transition">Pure Black</button>
+                    <button onclick="setAppTheme('dark')" id="themeBtn-dark" class="py-1.5 px-2 rounded-xl text-xs font-medium bg-zinc-800 border border-zinc-700 text-zinc-300 transition">Dark</button>
+                    <button onclick="setAppTheme('light')" id="themeBtn-light" class="py-1.5 px-2 rounded-xl text-xs font-medium bg-slate-200 border border-slate-300 text-slate-800 transition">Light</button>
+                </div>
+            </div>
+
+            <div class="bg-black/50 p-3 rounded-2xl border border-zinc-800 space-y-2 text-left">
+                <span class="text-xs font-semibold text-zinc-300">Accent Color</span>
+                <div class="flex items-center justify-around pt-2">
+                    <button aria-label="Green accent" onclick="setAccentColor('#10b981')" class="w-7 h-7 rounded-full bg-emerald-500 hover:scale-110 transition-transform shadow"></button>
+                    <button aria-label="Red accent" onclick="setAccentColor('#ef4444')" class="w-7 h-7 rounded-full bg-red-500 hover:scale-110 transition-transform shadow"></button>
+                    <button aria-label="Blue accent" onclick="setAccentColor('#3b82f6')" class="w-7 h-7 rounded-full bg-blue-500 hover:scale-110 transition-transform shadow"></button>
+                    <button aria-label="Purple accent" onclick="setAccentColor('#a855f7')" class="w-7 h-7 rounded-full bg-purple-500 hover:scale-110 transition-transform shadow"></button>
+                    <button aria-label="Amber accent" onclick="setAccentColor('#f59e0b')" class="w-7 h-7 rounded-full bg-amber-500 hover:scale-110 transition-transform shadow"></button>
+                </div>
+            </div>
+
+            <div class="text-center pt-2">
+                <p class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Made by REAPER-357</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- PREVIEW MODAL -->
+    <div id="previewModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="panel-bg w-full max-w-2xl h-[80vh] rounded-3xl border border-zinc-800 shadow-2xl flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between p-4 border-b border-zinc-800 bg-black/40">
+                <h3 class="text-xs font-bold text-white"><i class="fa-solid fa-play accent-text mr-1"></i> Live Code Preview</h3>
+                <button id="closePreviewBtn" class="text-zinc-400 hover:text-white text-base"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <iframe id="previewIframe" class="flex-1 w-full bg-white"></iframe>
+        </div>
+    </div>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        /* ---------- Theme & Accent ---------- */
+        function setAccentColor(hex) {
+            localStorage.setItem('bd_accent_color', hex);
+            document.documentElement.style.setProperty('--accent-color', hex);
+            document.getElementById('appTitleHeader').style.color = hex;
+        }
+
+        function setAppTheme(theme) {
+            if (!['black', 'dark', 'light'].includes(theme)) theme = 'black';
+            localStorage.setItem('bd_app_theme', theme);
+            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.classList.toggle('dark', theme !== 'light');
+            const meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', { black: '#000000', dark: '#0f172a', light: '#f1f5f9' }[theme]);
+        }
+
+        function initPreferences() {
+            setAccentColor(localStorage.getItem('bd_accent_color') || '#10b981');
+            setAppTheme(localStorage.getItem('bd_app_theme') || 'black');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 2500);
+        }
+
+        /* ---------- Tab Navigation ---------- */
+        document.querySelectorAll('#navTabs button').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('#navTabs button').forEach(t => {
+                    t.classList.remove('active', 'border-b-2', 'accent-text', 'font-semibold');
+                    t.classList.add('text-zinc-400', 'font-medium');
+                });
+                tab.classList.add('active', 'border-b-2', 'accent-text', 'font-semibold');
+                tab.classList.remove('text-zinc-400', 'font-medium');
+
+                const target = tab.getAttribute('data-tab');
+                document.querySelectorAll('.tab-view').forEach(v => v.classList.add('hidden'));
+                document.getElementById(`view-${target}`).classList.remove('hidden');
+            });
+        });
+
+        /* ---------- Tab 1: Code Editor (IDE) ---------- */
+        const DEFAULT_FILES = {
+            'index.html': `<!DOCTYPE html>\n<html lang="en" class="dark">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <title>Beaver PWA</title>\n    <link rel="manifest" href="manifest.json">\n</head>\n<body class="bg-black text-white flex items-center justify-center min-h-screen font-sans">\n    <div class="text-center space-y-2">\n        <h1 class="text-xl font-bold">Beaver Dam PWA Shell</h1>\n        <p class="text-xs text-zinc-400">Offline Ready Project</p>\n    </div>\n    <script src="app.js"><\/script>\n</body>\n</html>`,
+            'app.js': `console.log("Beaver Dam script active...");\n\nif ('serviceWorker' in navigator) {\n    navigator.serviceWorker.register('sw.js');\n}`,
+            'manifest.json': `{\n    "name": "Beaver App",\n    "short_name": "Beaver",\n    "start_url": "index.html",\n    "display": "standalone",\n    "background_color": "#000000",\n    "theme_color": "#10b981",\n    "icons": [\n        { "src": "icon.png", "sizes": "512x512", "type": "image/png" }\n    ]\n}`
+        };
+
+        let currentIdeFile = 'index.html';
+        const ideCodeArea = document.getElementById('ideCodeArea');
+
+        document.querySelectorAll('.ide-file-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                DEFAULT_FILES[currentIdeFile] = ideCodeArea.value;
+                document.querySelectorAll('.ide-file-btn').forEach(b => {
+                    b.classList.remove('accent-bg', 'text-white', 'font-semibold');
+                    b.classList.add('text-zinc-400', 'font-medium');
+                });
+                btn.classList.add('accent-bg', 'text-white', 'font-semibold');
+                btn.classList.remove('text-zinc-400', 'font-medium');
+
+                currentIdeFile = btn.getAttribute('data-file');
+                ideCodeArea.value = DEFAULT_FILES[currentIdeFile];
+            });
+        });
+
+        ideCodeArea.value = DEFAULT_FILES['index.html'];
+
+        document.getElementById('btnLoadPreset').addEventListener('click', () => {
+            ideCodeArea.value = DEFAULT_FILES['index.html'];
+            showToast('Loaded standard PWA shell');
+        });
+
+        document.getElementById('btnPreviewCode').addEventListener('click', () => {
+            DEFAULT_FILES[currentIdeFile] = ideCodeArea.value;
+            const previewModal = document.getElementById('previewModal');
+            const iframe = document.getElementById('previewIframe');
+            previewModal.classList.remove('hidden');
+
+            const blob = new Blob([DEFAULT_FILES['index.html']], {type: 'text/html;charset=utf-8'});
+            iframe.src = URL.createObjectURL(blob);
+        });
+
+        document.getElementById('closePreviewBtn').addEventListener('click', () => {
+            document.getElementById('previewModal').classList.add('hidden');
+        });
+
+        document.getElementById('btnDownloadFile').addEventListener('click', () => {
+            DEFAULT_FILES[currentIdeFile] = ideCodeArea.value;
+            const blob = new Blob([DEFAULT_FILES[currentIdeFile]], {type: 'text/plain;charset=utf-8'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentIdeFile;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showToast(`Exported ${currentIdeFile}`);
+        });
+
+        /* ---------- Tab 2: PWA Icon Studio ---------- */
+        const pwaIconInput = document.getElementById('pwaIconInput');
+        const pwaIconPreview = document.getElementById('pwaIconPreview');
+        const pwaMetaOutput = document.getElementById('pwaMetaOutput');
+        const btnExport192 = document.getElementById('btnExport192');
+        const btnExport512 = document.getElementById('btnExport512');
+        const btnExportApple = document.getElementById('btnExportApple');
+
+        let loadedImage = null;
+
+        pwaMetaOutput.value = `<link rel="manifest" href="manifest.json">\n<meta name="theme-color" content="#000000">\n<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n<link rel="apple-touch-icon" href="apple-touch-icon.png">`;
+
+        pwaIconInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                    loadedImage = img;
+                    pwaIconPreview.innerHTML = `<img src="${ev.target.result}" class="w-16 h-16 rounded-xl object-cover shadow-md border border-zinc-700">`;
+                    btnExport192.disabled = false;
+                    btnExport512.disabled = false;
+                    btnExportApple.disabled = false;
+                    showToast('Image loaded for rendering');
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function renderAndDownloadCanvas(size, filename) {
+            if (!loadedImage) return;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(loadedImage, 0, 0, size, size);
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                showToast(`Exported ${filename}`);
+            }, 'image/png');
+        }
+
+        btnExport192.addEventListener('click', () => renderAndDownloadCanvas(192, 'icon-192.png'));
+        btnExport512.addEventListener('click', () => renderAndDownloadCanvas(512, 'icon-512.png'));
+        btnExportApple.addEventListener('click', () => renderAndDownloadCanvas(180, 'apple-touch-icon.png'));
+
+        document.getElementById('btnCopyMetaTags').addEventListener('click', () => {
+            navigator.clipboard.writeText(pwaMetaOutput.value);
+            showToast('Meta tags copied to clipboard');
+        });
+
+        /* ---------- Tab 3: Crypto & Hashes ---------- */
+        const cryptoInput = document.getElementById('cryptoInput');
+        const outSha256 = document.getElementById('outSha256');
+        const outMd5 = document.getElementById('outMd5');
+        const outBase64 = document.getElementById('outBase64');
+        const outUrlEnc = document.getElementById('outUrlEnc');
+
+        cryptoInput.addEventListener('input', () => {
+            const val = cryptoInput.value;
+            if (!val) {
+                outSha256.value = '';
+                outMd5.value = '';
+                outBase64.value = '';
+                outUrlEnc.value = '';
+                return;
+            }
+            if (window.CryptoJS) {
+                outSha256.value = CryptoJS.SHA256(val).toString();
+                outMd5.value = CryptoJS.MD5(val).toString();
+            }
+            outBase64.value = btoa(unescape(encodeURIComponent(val)));
+            outUrlEnc.value = encodeURIComponent(val);
+        });
+
+        document.getElementById('btnGenUuid').addEventListener('click', () => {
+            const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+            document.getElementById('tokenOutput').value = uuid;
+            showToast('Generated UUID v4');
+        });
+
+        document.getElementById('btnGenSecret').addEventListener('click', () => {
+            const arr = new Uint8Array(32);
+            window.crypto.getRandomValues(arr);
+            const hex = Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+            document.getElementById('tokenOutput').value = hex;
+            showToast('Generated 32-Byte Hex Key');
+        });
+
+        document.querySelectorAll('.chmod-chk').forEach(chk => {
+            chk.addEventListener('change', () => {
+                let sum = 0;
+                document.querySelectorAll('.chmod-chk:checked').forEach(c => {
+                    sum += parseInt(c.getAttribute('data-val'), 10);
+                });
+                document.getElementById('chmodResult').textContent = sum.toString().padStart(3, '0');
+            });
+        });
+
+        /* ---------- Tab 4: Inspector & JSON ---------- */
+        function updateInspectorStats() {
+            document.getElementById('specViewport').textContent = `${window.innerWidth} x ${window.innerHeight} px`;
+            document.getElementById('specScreen').textContent = `${screen.width} x ${screen.height} px`;
+            document.getElementById('specDpr').textContent = `${window.devicePixelRatio || 1}x`;
+            document.getElementById('specTouch').textContent = ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'Supported' : 'None';
+            document.getElementById('specLsCount').textContent = localStorage.length;
+            document.getElementById('specOnline').textContent = navigator.onLine ? 'Online' : 'Offline';
+
+            if (navigator.storage && navigator.storage.estimate) {
+                navigator.storage.estimate().then(est => {
+                    const mb = (est.usage / (1024 * 1024)).toFixed(2);
+                    document.getElementById('specStorageUsage').textContent = `~${mb} MB`;
+                });
+            }
+        }
+
+        const jsonInput = document.getElementById('jsonInput');
+        document.getElementById('btnFormatJson').addEventListener('click', () => {
+            try {
+                const parsed = JSON.parse(jsonInput.value);
+                jsonInput.value = JSON.stringify(parsed, null, 2);
+                showToast('JSON beautified');
+            } catch (e) {
+                showToast('Invalid JSON syntax');
+            }
+        });
+
+        document.getElementById('btnMinifyJson').addEventListener('click', () => {
+            try {
+                const parsed = JSON.parse(jsonInput.value);
+                jsonInput.value = JSON.stringify(parsed);
+                showToast('JSON minified');
+            } catch (e) {
+                showToast('Invalid JSON syntax');
+            }
+        });
+
+        /* ---------- Modals ---------- */
+        document.getElementById('openSettingsBtn').addEventListener('click', () => {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        });
+
+        document.querySelectorAll('.closeModalBtn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('settingsModal').classList.add('hidden');
+                document.getElementById('previewModal').classList.add('hidden');
+            });
+        });
+
+        /* ---------- Startup ---------- */
+        window.addEventListener('DOMContentLoaded', () => {
+            initPreferences();
+            updateInspectorStats();
+            window.addEventListener('resize', updateInspectorStats);
+        });
+    </script>
+</body>
+</html>
