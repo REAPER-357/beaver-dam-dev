@@ -1,0 +1,2153 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-theme="black">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beaver Dam - Editor & Dev Tools</title>
+
+    <!-- PWA & Theme Integration -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for clean iconography -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- CryptoJS for offline cryptographic hashes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <!-- JSZip for the icon ZIP download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --accent-color: #10b981;
+            --page-bg: #000000;
+            --page-fg: #f1f5f9;
+            --panel-bg: #18181b;
+            --bar-bg: rgba(0, 0, 0, 0.95);
+            --nav-bg: #09090b;
+            --bar-border: #27272a;
+        }
+        [data-theme="dark"] {
+            --page-bg: #0f172a;
+            --panel-bg: #1e293b;
+            --bar-bg: rgba(15, 23, 42, 0.95);
+            --nav-bg: #020617;
+            --bar-border: #1e293b;
+        }
+        [data-theme="light"] {
+            --page-bg: #f1f5f9;
+            --page-fg: #1e293b;
+            --panel-bg: #ffffff;
+            --bar-bg: rgba(255, 255, 255, 0.95);
+            --nav-bg: #e2e8f0;
+            --bar-border: #cbd5e1;
+        }
+
+        body { background-color: var(--page-bg); color: var(--page-fg); }
+        .panel-bg { background-color: var(--panel-bg); }
+        .app-header { background-color: var(--bar-bg); border-color: var(--bar-border); }
+        .app-nav { background-color: var(--nav-bg); border-color: var(--bar-border); }
+        .tab-btn.active { border-color: var(--accent-color); }
+
+        .accent-text { color: var(--accent-color) !important; }
+        .accent-bg { background-color: var(--accent-color) !important; }
+        .accent-border { border-color: var(--accent-color) !important; }
+        input[type=range], input[type=checkbox] { accent-color: var(--accent-color); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Light theme adjustments */
+        [data-theme="light"] .bg-black,
+        [data-theme="light"] .bg-black\/40,
+        [data-theme="light"] .bg-black\/50 { background-color: #f1f5f9; }
+        [data-theme="light"] .bg-zinc-800 { background-color: #e2e8f0; }
+        [data-theme="light"] .bg-zinc-900,
+        [data-theme="light"] .bg-zinc-900\/40 { background-color: #f8fafc; }
+        [data-theme="light"] .hover\:bg-zinc-700:hover { background-color: #cbd5e1; }
+        [data-theme="light"] .border-zinc-800,
+        [data-theme="light"] .border-zinc-700 { border-color: #cbd5e1; }
+        [data-theme="light"] .text-white:not(.accent-bg),
+        [data-theme="light"] .text-zinc-100,
+        [data-theme="light"] .text-zinc-200,
+        [data-theme="light"] .text-zinc-300 { color: #1e293b; }
+        [data-theme="light"] .text-zinc-400,
+        [data-theme="light"] .text-zinc-500 { color: #64748b; }
+        [data-theme="light"] .accent-bg { color: #ffffff; }
+
+        /* ---- shared tool styles ---- */
+        :root { --muted: #a1a1aa; --fld-bg: #000000; --btn-bg: #27272a; --btn-hover: #3f3f46; --danger: #f87171; --warn: #fbbf24; }
+        [data-theme="light"] { --muted: #64748b; --fld-bg: #f1f5f9; --btn-bg: #e2e8f0; --btn-hover: #cbd5e1; --danger: #dc2626; --warn: #b45309; }
+        .lbl { display: flex; flex-direction: column; gap: .25rem; font-size: 11px; font-weight: 600; color: var(--muted); }
+        .fld { width: 100%; padding: .5rem .75rem; border-radius: .75rem; font-size: .75rem; line-height: 1.5; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; border: 1px solid var(--bar-border); background: var(--fld-bg); color: var(--page-fg); }
+        .fld:focus { outline: none; border-color: var(--accent-color); }
+        textarea.fld { resize: none; }
+        .fld[readonly] { color: var(--accent-color); }
+        .fld.bad { color: var(--danger) !important; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: .375rem; padding: .5rem .75rem; border-radius: .75rem; font-size: .75rem; font-weight: 600; background: var(--btn-bg); color: var(--page-fg); transition: background .15s; white-space: nowrap; width: auto; }
+        .btn:hover { background: var(--btn-hover); }
+        .btn:disabled { opacity: .4; pointer-events: none; }
+        .btn-accent, .btn-accent:hover { background: var(--accent-color); color: #fff; }
+        .btn-sm { padding: .25rem .625rem; border-radius: .5rem; }
+        .btn-danger { color: var(--danger); }
+        .sub { font-size: 10.5px; line-height: 1.45; color: var(--muted); }
+        .ok { color: var(--accent-color) !important; }
+        .bad { color: var(--danger) !important; }
+        .warn { color: var(--warn) !important; }
+        .codebox { background: var(--fld-bg); border: 1px solid var(--bar-border); border-radius: .75rem; padding: .625rem .75rem; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; max-height: 14rem; overflow: auto; user-select: text; }
+        .codebox:empty { display: none; }
+        mark { background: var(--accent-color); color: #fff; border-radius: 3px; padding: 0 1px; }
+        .kv { display: flex; justify-content: space-between; gap: .75rem; font-size: 11px; padding: .1875rem 0; }
+        .kv > span:first-child { color: var(--muted); flex: none; }
+        .kv > span:last-child { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--accent-color); text-align: right; word-break: break-word; min-width: 0; }
+        .seg { display: inline-flex; border: 1px solid var(--bar-border); border-radius: .75rem; overflow: hidden; }
+        .seg button { padding: .375rem .875rem; font-size: .75rem; font-weight: 600; color: var(--muted); }
+        .seg button.active { background: var(--accent-color); color: #fff; }
+        .card > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: .625rem; padding: 1rem; font-size: .8125rem; font-weight: 700; user-select: none; }
+        .card > summary::-webkit-details-marker { display: none; }
+        .card > summary .chev { margin-left: auto; font-size: .7rem; color: var(--muted); transition: transform .15s; }
+        .card[open] > summary .chev { transform: rotate(90deg); }
+        .card > .card-body { padding: 0 1rem 1rem; display: flex; flex-direction: column; gap: .75rem; }
+        .icon-tile { display: flex; flex-direction: column; align-items: center; gap: .25rem; padding: .5rem; width: 6.25rem; border: 1px solid var(--bar-border); border-radius: 1rem; background: var(--fld-bg); transition: border-color .15s; }
+        .icon-tile:hover { border-color: var(--accent-color); }
+        .icon-tile canvas { image-rendering: auto; border-radius: .5rem; }
+        input[type=range] { width: 100%; }
+    </style>
+</head>
+<body id="appBody" class="min-h-screen flex flex-col font-sans transition-colors duration-200 pb-28">
+
+    <!-- TOP HEADER -->
+    <header id="appHeader" class="select-none app-header sticky top-0 z-40 backdrop-blur-md border-b px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <img src="small-icon.png" alt="Logo" class="w-9 h-9 rounded-full object-cover border border-zinc-700 shadow-sm" onerror="this.onerror=null;this.src='icon.png'"/>
+            <div>
+                <h1 id="appTitleHeader" class="text-base font-bold tracking-tight leading-none text-emerald-400">BEAVER DAM</h1>
+                <p class="text-[10px] text-zinc-400 font-medium">Developer & PWA Studio</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button id="openSettingsBtn" aria-label="Open settings" class="p-2.5 rounded-xl text-zinc-300 hover:bg-zinc-800/50 transition">
+                <i class="fa-solid fa-gear text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <nav id="appNav" class="select-none app-nav border-b px-4 pt-2">
+        <div class="flex space-x-1 sm:space-x-2 overflow-x-auto no-scrollbar max-w-4xl mx-auto" id="navTabs">
+            <button data-tab="ide" class="tab-btn active px-4 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 accent-text flex items-center space-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-file-pen"></i> <span>Editor</span>
+            </button>
+            <button data-tab="pwa" class="tab-btn px-4 py-2.5 text-xs font-medium rounded-t-lg text-zinc-400 hover:text-zinc-200 flex items-center space-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-icons"></i> <span>PWA Studio</span>
+            </button>
+            <button data-tab="crypto" class="tab-btn px-4 py-2.5 text-xs font-medium rounded-t-lg text-zinc-400 hover:text-zinc-200 flex items-center space-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-key"></i> <span>Crypto & Hashes</span>
+            </button>
+            <button data-tab="inspector" class="tab-btn px-4 py-2.5 text-xs font-medium rounded-t-lg text-zinc-400 hover:text-zinc-200 flex items-center space-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-toolbox"></i> <span>Dev Tools</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- TOAST -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-xl bg-zinc-800 text-zinc-100 text-xs font-medium shadow-xl border border-zinc-700 max-w-[90vw] text-center"></div>
+
+    <!-- MAIN VIEW AREA -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-4">
+
+        <!-- TAB 1: TEXT EDITOR -->
+        <section id="view-ide" class="tab-view space-y-4">
+            <style>
+                .ed-pane { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--ed-size, 13px); line-height: 1.6; padding: 12px; tab-size: 4; }
+                #edArea { white-space: pre; overflow: auto; resize: none; outline: none; }
+                #edArea.wrap-on { white-space: pre-wrap; word-break: break-word; overflow-x: hidden; }
+                #edGutter { white-space: pre; text-align: right; overflow: hidden; user-select: none; padding-bottom: 28px; min-width: 3rem; }
+                .ed-tab.active { border-color: var(--accent-color); }
+            </style>
+            <div class="panel-bg p-4 rounded-3xl border border-zinc-800 shadow-sm space-y-3">
+
+                <!-- Open documents -->
+                <div id="edTabs" class="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-zinc-800 pb-2"></div>
+
+                <!-- File name + type -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <input type="text" id="edName" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="filename.ext" aria-label="File name"
+                           class="flex-1 min-w-[10rem] px-3 py-2 bg-black border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-emerald-500">
+                    <select id="edExtPick" aria-label="Quick file extension" class="px-2 py-2 bg-zinc-800 text-zinc-200 text-xs font-semibold rounded-xl border border-zinc-700 focus:outline-none">
+                        <option value="">Ext…</option>
+                        <option>.txt</option><option>.md</option><option>.html</option><option>.css</option><option>.js</option>
+                        <option>.json</option><option>.xml</option><option>.csv</option><option>.svg</option><option>.py</option>
+                        <option>.sh</option><option>.yml</option><option>.ini</option><option>.log</option><option>.sql</option>
+                    </select>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <button id="edBtnNew" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-xl transition"><i class="fa-solid fa-file-circle-plus mr-1"></i> New</button>
+                    <select id="edTemplate" aria-label="New from template" class="px-2 py-1.5 bg-zinc-800 text-zinc-200 text-xs font-semibold rounded-xl border border-zinc-700 focus:outline-none">
+                        <option value="">Template…</option>
+                        <option value="html">HTML page</option>
+                        <option value="manifest">PWA manifest.json</option>
+                        <option value="sw">Service worker</option>
+                    </select>
+                    <button id="edBtnOpen" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-xl transition"><i class="fa-solid fa-folder-open mr-1"></i> Open</button>
+                    <button id="edBtnSave" class="px-3 py-1.5 accent-bg text-white text-xs font-semibold rounded-xl shadow-md transition"><i class="fa-solid fa-floppy-disk mr-1"></i> Save</button>
+                    <button id="edBtnSaveAs" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-xl transition"><i class="fa-solid fa-file-export mr-1"></i> Save As</button>
+                    <button id="edBtnPreview" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-xl transition" title="Preview .html / .htm / .svg files"><i class="fa-solid fa-play mr-1"></i> Preview</button>
+                    <input type="file" id="edFileInput" multiple class="hidden">
+                </div>
+
+                <!-- View tools -->
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <button id="edBtnFind" class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg transition"><i class="fa-solid fa-magnifying-glass mr-1"></i> Find</button>
+                    <button id="edBtnWrap" class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg transition"><i class="fa-solid fa-text-width mr-1"></i> Wrap: <span id="edWrapState">Off</span></button>
+                    <div class="flex items-center gap-1">
+                        <button id="edFontDown" aria-label="Smaller text" class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg transition">A−</button>
+                        <button id="edFontUp" aria-label="Larger text" class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg transition">A+</button>
+                    </div>
+                </div>
+
+                <!-- Find & replace -->
+                <div id="edFindBar" class="hidden flex-wrap items-center gap-2 bg-black p-2 rounded-2xl border border-zinc-800">
+                    <input type="text" id="edFindInput" placeholder="Find" class="flex-1 min-w-[7rem] px-2.5 py-1.5 bg-black border border-zinc-800 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-emerald-500">
+                    <input type="text" id="edReplaceInput" placeholder="Replace with" class="flex-1 min-w-[7rem] px-2.5 py-1.5 bg-black border border-zinc-800 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-emerald-500">
+                    <label class="text-[11px] text-zinc-400 flex items-center gap-1"><input type="checkbox" id="edCase"> Aa</label>
+                    <button id="edFindNext" class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold rounded-lg transition">Next</button>
+                    <button id="edReplaceOne" class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold rounded-lg transition">Replace</button>
+                    <button id="edReplaceAll" class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold rounded-lg transition">All</button>
+                </div>
+
+                <!-- Editor -->
+                <div class="flex bg-black border border-zinc-800 rounded-2xl overflow-hidden h-[52vh] focus-within:border-emerald-500 transition">
+                    <div id="edGutter" class="ed-pane text-zinc-600 border-r border-zinc-800 bg-black/40" aria-hidden="true">1</div>
+                    <textarea id="edArea" class="ed-pane flex-1 min-w-0 bg-transparent text-zinc-200" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Text editor" placeholder="Start typing…"></textarea>
+                </div>
+
+                <!-- Status bar -->
+                <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400 font-mono">
+                    <span id="edPos">Ln 1, Col 1</span>
+                    <span id="edStats">0 chars · 0 words · 1 line</span>
+                    <span id="edType">Plain text</span>
+                    <span id="edSaveState" class="accent-text font-semibold">Saved</span>
+                </div>
+                <p class="text-[10px] text-zinc-500">Drafts auto-save on this device. Use <span class="font-mono">Save</span> (or Ctrl/⌘+S) to write the file with the name and extension above. Tab inserts spaces.</p>
+            </div>
+        </section>
+
+        <!-- TAB 2: PWA STUDIO -->
+        <section id="view-pwa" class="tab-view hidden space-y-3">
+
+            <!-- Manifest builder -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm" open>
+                <summary><i class="fa-solid fa-file-code accent-text"></i><span>Manifest Builder</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="lbl">App name<input id="pwaName" type="text" class="fld" autocomplete="off"></label>
+                        <label class="lbl">Short name<input id="pwaShort" type="text" class="fld" autocomplete="off"></label>
+                    </div>
+                    <label class="lbl">Description<input id="pwaDesc" type="text" class="fld" autocomplete="off"></label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="lbl">Start URL<input id="pwaStart" type="text" class="fld" autocomplete="off" autocapitalize="off"></label>
+                        <label class="lbl">Scope<input id="pwaScope" type="text" class="fld" autocomplete="off" autocapitalize="off"></label>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="lbl">Theme color<input id="pwaTheme" type="color" class="fld" style="height:2.5rem;padding:.25rem"></label>
+                        <label class="lbl">Background color<input id="pwaBg" type="color" class="fld" style="height:2.5rem;padding:.25rem"></label>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="lbl">Display
+                            <select id="pwaDisplay" class="fld">
+                                <option value="standalone">standalone</option>
+                                <option value="fullscreen">fullscreen</option>
+                                <option value="minimal-ui">minimal-ui</option>
+                                <option value="browser">browser</option>
+                            </select>
+                        </label>
+                        <label class="lbl">Orientation
+                            <select id="pwaOrient" class="fld">
+                                <option value="any">any</option>
+                                <option value="portrait">portrait</option>
+                                <option value="landscape">landscape</option>
+                            </select>
+                        </label>
+                    </div>
+                    <label class="flex items-center gap-2 text-xs"><input type="checkbox" id="pwaMaskable"> Include a maskable icon (Android adaptive icons)</label>
+                    <textarea id="pwaManifestOut" rows="12" readonly class="fld" aria-label="manifest.json output" spellcheck="false"></textarea>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="btnCopyManifest" class="btn"><i class="fa-solid fa-copy"></i> Copy</button>
+                        <button id="btnEditManifest" class="btn btn-accent"><i class="fa-solid fa-file-pen"></i> Open in Editor</button>
+                        <button id="btnDlManifest" class="btn"><i class="fa-solid fa-download"></i> Download</button>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Icon generator -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm" open>
+                <summary><i class="fa-solid fa-icons accent-text"></i><span>Icon Generator</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <p class="sub">Pick one image (512&times;512 or larger works best). Tap any preview to download that size, or grab everything as a ZIP together with the manifest, head tags and service worker. File names match the ones your other apps use (icon.png, small-icon.png).</p>
+                    <input type="file" id="pwaIconInput" accept="image/*" class="w-full text-xs text-zinc-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-white hover:file:bg-zinc-700 cursor-pointer">
+                    <div class="grid grid-cols-2 gap-3 items-end">
+                        <label class="lbl">Fit
+                            <select id="pwaFit" class="fld">
+                                <option value="cover">Crop to square</option>
+                                <option value="contain">Fit inside (pad)</option>
+                            </select>
+                        </label>
+                        <label class="flex items-center gap-2 text-xs pb-2"><input type="checkbox" id="pwaFillBg"> Fill background on standard icons</label>
+                    </div>
+                    <p class="sub">The background color above is used for padding, the Apple icon and the maskable icon.</p>
+                    <div id="pwaIconGrid" class="flex flex-wrap gap-2"></div>
+                    <button id="pwaZipBtn" class="btn btn-accent" disabled><i class="fa-solid fa-file-zipper"></i> Download everything as ZIP</button>
+                </div>
+            </details>
+
+            <!-- Head tags -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm">
+                <summary><i class="fa-solid fa-code accent-text"></i><span>Head Tags &amp; Registration</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <p class="sub">Paste into the &lt;head&gt; of your index.html. Built from the settings above.</p>
+                    <textarea id="pwaMetaOutput" rows="14" readonly class="fld" aria-label="Head tags" spellcheck="false"></textarea>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="btnCopyMetaTags" class="btn"><i class="fa-solid fa-copy"></i> Copy</button>
+                        <button id="btnEditMeta" class="btn btn-accent"><i class="fa-solid fa-file-pen"></i> Open in Editor</button>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Service worker generator -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm">
+                <summary><i class="fa-solid fa-bolt accent-text"></i><span>Service Worker Generator</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <p class="sub">Bump the version whenever you change a cached file so installed copies update.</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="lbl">Cache name<input id="pwaSwName" type="text" class="fld" autocomplete="off" autocapitalize="off"></label>
+                        <label class="lbl">Version<input id="pwaSwVer" type="text" class="fld" autocomplete="off" autocapitalize="off"></label>
+                    </div>
+                    <label class="lbl">Strategy
+                        <select id="pwaSwStrategy" class="fld">
+                            <option value="swr">Stale-while-revalidate</option>
+                            <option value="cache">Cache first</option>
+                            <option value="network">Network first</option>
+                        </select>
+                    </label>
+                    <label class="lbl">Files to pre-cache (one per line)
+                        <textarea id="pwaSwFiles" rows="5" class="fld" spellcheck="false" autocapitalize="off"></textarea>
+                    </label>
+                    <textarea id="pwaSwOut" rows="12" readonly class="fld" aria-label="sw.js output" spellcheck="false"></textarea>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="btnCopySw" class="btn"><i class="fa-solid fa-copy"></i> Copy</button>
+                        <button id="btnEditSw" class="btn btn-accent"><i class="fa-solid fa-file-pen"></i> Open in Editor</button>
+                        <button id="btnDlSw" class="btn"><i class="fa-solid fa-download"></i> Download</button>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <!-- TAB 3: CRYPTO & HASHES -->
+        <section id="view-crypto" class="tab-view hidden space-y-3">
+
+            <!-- Text hashes & encoding -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm" open>
+                <summary><i class="fa-solid fa-key accent-text"></i><span>Hashes &amp; Encoding</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <textarea id="cryptoInput" rows="3" class="fld" placeholder="Type or paste text..." spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="seg" id="cryptoMode">
+                            <button type="button" data-mode="enc" class="active">Encode</button>
+                            <button type="button" data-mode="dec">Decode</button>
+                        </div>
+                        <span class="sub">Mode applies to Base64, URL and Hex. Hashes always use the input text.</span>
+                    </div>
+                    <div id="cryptoHashRows" class="space-y-2"></div>
+                    <div class="grid grid-cols-3 gap-2 items-end">
+                        <label class="lbl col-span-2">HMAC key<input id="hmacKey" type="text" class="fld" autocomplete="off" autocapitalize="off" placeholder="secret key"></label>
+                        <label class="lbl">Algorithm
+                            <select id="hmacAlg" class="fld">
+                                <option value="SHA256">SHA-256</option>
+                                <option value="SHA1">SHA-1</option>
+                                <option value="SHA512">SHA-512</option>
+                                <option value="MD5">MD5</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div id="cryptoHmacRow"></div>
+                    <div id="cryptoEncRows" class="space-y-2"></div>
+                </div>
+            </details>
+
+            <!-- File hash -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm">
+                <summary><i class="fa-solid fa-shield-halved accent-text"></i><span>File Hash Checker</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <p class="sub">Verify a download without leaving your phone. The file never leaves this device.</p>
+                    <input type="file" id="fileHashInput" class="w-full text-xs text-zinc-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-white hover:file:bg-zinc-700 cursor-pointer">
+                    <div id="fileHashStatus" class="sub min-h-[1rem]"></div>
+                    <div id="fileHashRows" class="space-y-2"></div>
+                    <label class="lbl">Expected hash (paste to compare)
+                        <input id="fileHashExpect" type="text" class="fld" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sha-1 / sha-256 / sha-512 hex">
+                    </label>
+                    <div id="fileHashVerdict" class="text-xs min-h-[1rem]"></div>
+                </div>
+            </details>
+
+            <!-- JWT -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm">
+                <summary><i class="fa-solid fa-id-badge accent-text"></i><span>JWT Decoder</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <textarea id="jwtInput" rows="4" class="fld" placeholder="Paste a JSON Web Token..." spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+                    <div id="jwtStatus" class="text-[11px] min-h-[1rem]"></div>
+                    <div id="jwtClaims"></div>
+                    <div class="sub font-semibold">Header</div>
+                    <pre id="jwtHeader" class="codebox"></pre>
+                    <div class="flex items-center justify-between">
+                        <div class="sub font-semibold">Payload</div>
+                        <button id="btnCopyJwt" class="btn btn-sm"><i class="fa-solid fa-copy"></i> Copy payload</button>
+                    </div>
+                    <pre id="jwtPayload" class="codebox"></pre>
+                    <div class="sub font-semibold">Signature (not verified)</div>
+                    <pre id="jwtSig" class="codebox"></pre>
+                </div>
+            </details>
+
+            <!-- Generators -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm">
+                <summary><i class="fa-solid fa-dice accent-text"></i><span>Generators</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <div class="flex gap-2">
+                        <input id="tokenOutput" type="text" readonly class="fld" placeholder="Generated value appears here..." aria-label="Generated value">
+                        <button id="btnCopyToken" class="btn" aria-label="Copy generated value"><i class="fa-solid fa-copy"></i></button>
+                    </div>
+                    <div id="tokenInfo" class="sub min-h-[1rem]"></div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button id="btnGenUuid" class="btn">UUID v4</button>
+                        <button id="btnGenSecret" class="btn">Random hex key</button>
+                        <select id="keyBytes" class="btn" aria-label="Key size">
+                            <option value="16">16 bytes</option>
+                            <option value="32" selected>32 bytes</option>
+                            <option value="64">64 bytes</option>
+                        </select>
+                    </div>
+                    <div class="border-t border-zinc-800 pt-3 space-y-2">
+                        <label class="lbl">Password length: <span id="pwLenVal" class="accent-text">20</span>
+                            <input id="pwLen" type="range" min="8" max="64" value="20">
+                        </label>
+                        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                            <label class="flex items-center gap-1"><input type="checkbox" id="pwUpper" checked> A-Z</label>
+                            <label class="flex items-center gap-1"><input type="checkbox" id="pwLower" checked> a-z</label>
+                            <label class="flex items-center gap-1"><input type="checkbox" id="pwDigits" checked> 0-9</label>
+                            <label class="flex items-center gap-1"><input type="checkbox" id="pwSymbols" checked> Symbols</label>
+                        </div>
+                        <button id="btnGenPw" class="btn btn-accent"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate password</button>
+                    </div>
+                </div>
+            </details>
+
+            <!-- chmod -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm">
+                <summary><i class="fa-solid fa-lock accent-text"></i><span>Chmod Calculator</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <div class="grid grid-cols-3 gap-2 text-xs bg-black p-3 rounded-2xl border border-zinc-800">
+                        <div>
+                            <span class="font-bold block mb-1 text-zinc-400">Owner</span>
+                            <label class="block py-0.5"><input type="checkbox" class="chmod-chk" data-val="400"> Read (4)</label>
+                            <label class="block py-0.5"><input type="checkbox" class="chmod-chk" data-val="200"> Write (2)</label>
+                            <label class="block py-0.5"><input type="checkbox" class="chmod-chk" data-val="100"> Execute (1)</label>
+                        </div>
+                        <div>
+                            <span class="font-bold block mb-1 text-zinc-400">Group</span>
+                            <label class="block py-0.5"><input type="checkbox" class="chmod-chk" data-val="40"> Read (4)</label>
+                            <label class="block py-0.5"><input type="checkbox" class="chmod-chk" data-val="20"> Write (2)</label>
+                            <label class="block py-0.5"><input type="checkbox" class="chmod-chk" data-val="10"> Execute (1)</label>
+                        </div>
+                        <div>
+                            <span class="font-bold block mb-1 text-zinc-400">Others</span>
+                            <label class="block py-0.5"><input type="checkbox" class="chmod-chk" data-val="4"> Read (4)</label>
+                            <label class="block py-0.5"><input type="checkbox" class="chmod-chk" data-val="2"> Write (2)</label>
+                            <label class="block py-0.5"><input type="checkbox" class="chmod-chk" data-val="1"> Execute (1)</label>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-end gap-3">
+                        <label class="lbl" style="width:6rem">Octal
+                            <input id="chmodIn" type="text" class="fld" maxlength="3" inputmode="numeric" value="000" autocomplete="off">
+                        </label>
+                        <div>
+                            <div class="sub">Symbolic</div>
+                            <div id="chmodSym" class="font-mono accent-text font-bold text-sm">---------</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <input id="chmodCmd" type="text" readonly class="fld" aria-label="chmod command">
+                        <button id="btnCopyChmod" class="btn" aria-label="Copy command"><i class="fa-solid fa-copy"></i></button>
+                    </div>
+                    <div id="chmodPresets" class="flex flex-wrap gap-2"></div>
+                </div>
+            </details>
+        </section>
+
+        <!-- TAB 4: DEV TOOLS -->
+        <section id="view-inspector" class="tab-view hidden space-y-3">
+
+            <!-- JSON -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm" open>
+                <summary><i class="fa-solid fa-code accent-text"></i><span>JSON Tools</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <textarea id="jsonInput" rows="8" class="fld" placeholder="Paste JSON here..." spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+                    <div id="jsonStatus" class="text-[11px] min-h-[1rem]"></div>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="btnFormatJson" class="btn btn-accent">Beautify</button>
+                        <button id="btnMinifyJson" class="btn">Minify</button>
+                        <button id="btnSortJson" class="btn">Sort keys</button>
+                        <select id="jsonIndent" class="btn" aria-label="Indent">
+                            <option value="2">2 spaces</option>
+                            <option value="4">4 spaces</option>
+                            <option value="tab">Tab</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="btnPasteJson" class="btn"><i class="fa-solid fa-paste"></i> Paste</button>
+                        <button id="btnCopyJson" class="btn"><i class="fa-solid fa-copy"></i> Copy</button>
+                        <button id="btnEditJson" class="btn"><i class="fa-solid fa-file-pen"></i> To Editor</button>
+                        <button id="btnClearJson" class="btn"><i class="fa-solid fa-trash"></i> Clear</button>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Timestamp -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm">
+                <summary><i class="fa-solid fa-clock accent-text"></i><span>Timestamp Converter</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <div class="flex gap-2">
+                        <input id="tsInput" type="text" class="fld" placeholder="Epoch or date, e.g. 1700000000" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Timestamp or date">
+                        <button id="btnTsNow" class="btn">Now</button>
+                    </div>
+                    <div id="tsNote" class="sub min-h-[1rem]"></div>
+                    <div id="tsRows" class="space-y-2"></div>
+                </div>
+            </details>
+
+            <!-- Regex -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm">
+                <summary><i class="fa-solid fa-asterisk accent-text"></i><span>Regex Tester</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <input id="rxPattern" type="text" class="fld" placeholder="Pattern, e.g. (\d+)-(?&lt;word&gt;\w+)" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Regex pattern">
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                        <label class="flex items-center gap-1"><input type="checkbox" class="rx-flag" value="g" checked> g</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" class="rx-flag" value="i"> i</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" class="rx-flag" value="m"> m</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" class="rx-flag" value="s"> s</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" class="rx-flag" value="u"> u</label>
+                    </div>
+                    <textarea id="rxText" rows="4" class="fld" placeholder="Test string" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+                    <div id="rxStatus" class="text-[11px] min-h-[1rem]"></div>
+                    <div id="rxPreview" class="codebox hidden"></div>
+                    <div id="rxList" class="codebox hidden"></div>
+                </div>
+            </details>
+
+            <!-- Environment -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm">
+                <summary><i class="fa-solid fa-microchip accent-text"></i><span>Device &amp; Environment</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <div id="envGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="btnEnvRefresh" class="btn"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                        <button id="btnEnvCopy" class="btn"><i class="fa-solid fa-copy"></i> Copy report</button>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Storage & cache -->
+            <details class="card panel-bg rounded-3xl border border-zinc-800 shadow-sm">
+                <summary><i class="fa-solid fa-database accent-text"></i><span>Storage &amp; Cache</span><i class="fa-solid fa-chevron-right chev"></i></summary>
+                <div class="card-body">
+                    <div>
+                        <div class="h-2 rounded-full bg-black overflow-hidden border border-zinc-800"><div id="stoBar" class="h-full accent-bg" style="width:0%"></div></div>
+                        <div id="stoText" class="sub mt-1">Calculating...</div>
+                    </div>
+                    <div class="sub font-semibold">localStorage keys</div>
+                    <div id="stoKeys" class="space-y-1"></div>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="stoClearCache" class="btn btn-accent"><i class="fa-solid fa-arrows-rotate"></i> Clear cache &amp; reload</button>
+                        <button id="stoUnreg" class="btn">Unregister service worker</button>
+                        <button id="stoPersist" class="btn">Request persistent storage</button>
+                        <button id="stoWipe" class="btn btn-danger"><i class="fa-solid fa-triangle-exclamation"></i> Erase all local data</button>
+                    </div>
+                    <p class="sub">"Clear cache &amp; reload" is the fix when an installed copy keeps showing an old version. Your editor drafts and settings are kept.</p>
+                </div>
+            </details>
+        </section>
+
+    </main>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="panel-bg w-full max-w-sm rounded-3xl p-6 border border-zinc-800 shadow-2xl space-y-5 text-center relative">
+            <button class="closeModalBtn absolute top-4 right-4 text-zinc-400 hover:text-white text-lg" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <img src="icon.png" alt="Beaver Dam Logo" class="w-32 h-32 mx-auto rounded-2xl object-cover border-2 border-zinc-700 shadow-lg mb-2" onerror="this.onerror=null;this.src='small-icon.png'"/>
+
+            <h3 class="text-base font-bold text-white">Beaver Dam Settings</h3>
+            <p class="text-xs text-zinc-400">Customize theme and accent color</p>
+
+            <div class="bg-black/50 p-3 rounded-2xl border border-zinc-800 space-y-2 text-left">
+                <span class="text-xs font-semibold text-zinc-300">App Background Theme</span>
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                    <button onclick="setAppTheme('black')" id="themeBtn-black" class="py-1.5 px-2 rounded-xl text-xs font-medium bg-zinc-900 border border-zinc-700 text-white transition">Pure Black</button>
+                    <button onclick="setAppTheme('dark')" id="themeBtn-dark" class="py-1.5 px-2 rounded-xl text-xs font-medium bg-zinc-800 border border-zinc-700 text-zinc-300 transition">Dark</button>
+                    <button onclick="setAppTheme('light')" id="themeBtn-light" class="py-1.5 px-2 rounded-xl text-xs font-medium bg-slate-200 border border-slate-300 text-slate-800 transition">Light</button>
+                </div>
+            </div>
+
+            <div class="bg-black/50 p-3 rounded-2xl border border-zinc-800 space-y-2 text-left">
+                <span class="text-xs font-semibold text-zinc-300">Accent Color</span>
+                <div class="flex items-center justify-around pt-2">
+                    <button aria-label="Green accent" onclick="setAccentColor('#10b981')" class="w-7 h-7 rounded-full bg-emerald-500 hover:scale-110 transition-transform shadow"></button>
+                    <button aria-label="Red accent" onclick="setAccentColor('#ef4444')" class="w-7 h-7 rounded-full bg-red-500 hover:scale-110 transition-transform shadow"></button>
+                    <button aria-label="Blue accent" onclick="setAccentColor('#3b82f6')" class="w-7 h-7 rounded-full bg-blue-500 hover:scale-110 transition-transform shadow"></button>
+                    <button aria-label="Purple accent" onclick="setAccentColor('#a855f7')" class="w-7 h-7 rounded-full bg-purple-500 hover:scale-110 transition-transform shadow"></button>
+                    <button aria-label="Amber accent" onclick="setAccentColor('#f59e0b')" class="w-7 h-7 rounded-full bg-amber-500 hover:scale-110 transition-transform shadow"></button>
+                </div>
+            </div>
+
+            <div class="text-center pt-2">
+                <p class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Made by REAPER-357</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- PREVIEW MODAL -->
+    <div id="previewModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="panel-bg w-full max-w-2xl h-[80vh] rounded-3xl border border-zinc-800 shadow-2xl flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between p-4 border-b border-zinc-800 bg-black/40">
+                <h3 class="text-xs font-bold text-white"><i class="fa-solid fa-play accent-text mr-1"></i> Live Code Preview</h3>
+                <button id="closePreviewBtn" class="text-zinc-400 hover:text-white text-base"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <iframe id="previewIframe" class="flex-1 w-full bg-white"></iframe>
+        </div>
+    </div>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        /* ---------- Theme & Accent ---------- */
+        function setAccentColor(hex) {
+            localStorage.setItem('bd_accent_color', hex);
+            document.documentElement.style.setProperty('--accent-color', hex);
+            document.getElementById('appTitleHeader').style.color = hex;
+        }
+
+        function setAppTheme(theme) {
+            if (!['black', 'dark', 'light'].includes(theme)) theme = 'black';
+            localStorage.setItem('bd_app_theme', theme);
+            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.classList.toggle('dark', theme !== 'light');
+            const meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', { black: '#000000', dark: '#0f172a', light: '#f1f5f9' }[theme]);
+        }
+
+        function initPreferences() {
+            setAccentColor(localStorage.getItem('bd_accent_color') || '#10b981');
+            setAppTheme(localStorage.getItem('bd_app_theme') || 'black');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('hidden');
+            clearTimeout(window.__toastTimer);
+            window.__toastTimer = setTimeout(() => toast.classList.add('hidden'), 2500);
+        }
+
+        /* ---------- Tab Navigation ---------- */
+        document.querySelectorAll('#navTabs button').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('#navTabs button').forEach(t => {
+                    t.classList.remove('active', 'border-b-2', 'accent-text', 'font-semibold');
+                    t.classList.add('text-zinc-400', 'font-medium');
+                });
+                tab.classList.add('active', 'border-b-2', 'accent-text', 'font-semibold');
+                tab.classList.remove('text-zinc-400', 'font-medium');
+
+                const target = tab.getAttribute('data-tab');
+                document.querySelectorAll('.tab-view').forEach(v => v.classList.add('hidden'));
+                document.getElementById(`view-${target}`).classList.remove('hidden');
+                if (window.onTabShown) onTabShown(target);
+            });
+        });
+
+        /* ---------- Tab 1: Text Editor ---------- */
+        const $ = (id) => document.getElementById(id);
+        const ED_STORE = 'bd_editor_v1';
+
+        const ED_MIME = {
+            txt: 'text/plain', md: 'text/markdown', markdown: 'text/markdown', html: 'text/html', htm: 'text/html',
+            css: 'text/css', js: 'text/javascript', mjs: 'text/javascript', json: 'application/json',
+            webmanifest: 'application/manifest+json', xml: 'application/xml', svg: 'image/svg+xml',
+            csv: 'text/csv', tsv: 'text/tab-separated-values', yml: 'text/yaml', yaml: 'text/yaml',
+            ini: 'text/plain', log: 'text/plain', sql: 'application/sql', py: 'text/x-python', sh: 'text/x-shellscript'
+        };
+        const ED_TYPES = {
+            txt: 'Plain text', md: 'Markdown', markdown: 'Markdown', html: 'HTML', htm: 'HTML', css: 'CSS',
+            js: 'JavaScript', mjs: 'JavaScript', json: 'JSON', xml: 'XML', svg: 'SVG', csv: 'CSV',
+            yml: 'YAML', yaml: 'YAML', py: 'Python', sh: 'Shell script', sql: 'SQL', ini: 'INI', log: 'Log'
+        };
+
+        const ED_TEMPLATES = {
+            html: { name: 'index.html', content: [
+                '<!DOCTYPE html>',
+                '<html lang="en">',
+                '<head>',
+                '    <meta charset="UTF-8">',
+                '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+                '    <title>My App</title>',
+                '    <link rel="manifest" href="manifest.json">',
+                '</head>',
+                '<body>',
+                '    <h1>Hello</h1>',
+                '    <script>',
+                "        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');",
+                '    <\/script>',
+                '</body>',
+                '</html>', ''
+            ].join('\n') },
+            manifest: { name: 'manifest.json', content: [
+                '{',
+                '    "name": "My App",',
+                '    "short_name": "MyApp",',
+                '    "start_url": "index.html",',
+                '    "display": "standalone",',
+                '    "background_color": "#000000",',
+                '    "theme_color": "#10b981",',
+                '    "icons": [',
+                '        { "src": "icon.png", "sizes": "512x512", "type": "image/png" }',
+                '    ]',
+                '}', ''
+            ].join('\n') },
+            sw: { name: 'sw.js', content: [
+                "const CACHE = 'my-app-v1';",
+                "const ASSETS = ['./', 'index.html', 'manifest.json'];",
+                '',
+                "self.addEventListener('install', (e) => {",
+                '    e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));',
+                '    self.skipWaiting();',
+                '});',
+                '',
+                "self.addEventListener('activate', (e) => {",
+                '    e.waitUntil(caches.keys().then((keys) =>',
+                '        Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))',
+                '    ).then(() => self.clients.claim()));',
+                '});',
+                '',
+                "self.addEventListener('fetch', (e) => {",
+                "    if (e.request.method !== 'GET') return;",
+                '    e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request)));',
+                '});', ''
+            ].join('\n') }
+        };
+
+        const ed = { files: [], active: 0, wrap: false, size: 13 };
+        const edHandles = {}; // file id -> FileSystemFileHandle (this session only)
+        let edSeq = 0, edLines = 0, edLastDirty = false, edPersistTimer = null, edQuotaWarned = false, edPreviewUrl = null;
+
+        const edArea = $('edArea');
+        const edGutter = $('edGutter');
+
+        function edMake(name, content) {
+            return { id: 'f' + Date.now().toString(36) + (edSeq++), name: name, content: content || '', saved: content || '' };
+        }
+        const edCur = () => ed.files[ed.active];
+        const edDirty = (f) => f.content !== f.saved;
+        function edExt(name) {
+            const m = /\.([^.\/\\]+)$/.exec(name || '');
+            return m ? m[1].toLowerCase() : '';
+        }
+        function edClean(name) {
+            return String(name || '').replace(/[\\\/:*?"<>|\u0000-\u001f]/g, '_').trim() || 'untitled.txt';
+        }
+
+        /* --- persistence --- */
+        function edLoad() {
+            try {
+                const s = JSON.parse(localStorage.getItem(ED_STORE) || 'null');
+                if (s && Array.isArray(s.files) && s.files.length) {
+                    ed.files = s.files.filter(f => f && typeof f.content === 'string').map(f => ({
+                        id: f.id || ('f' + Date.now().toString(36) + (edSeq++)),
+                        name: f.name || 'untitled.txt',
+                        content: f.content,
+                        saved: typeof f.saved === 'string' ? f.saved : f.content
+                    }));
+                    ed.active = Math.min(Math.max(s.active || 0, 0), Math.max(ed.files.length - 1, 0));
+                    ed.wrap = !!s.wrap;
+                    ed.size = Math.min(Math.max(parseInt(s.size, 10) || 13, 10), 24);
+                }
+            } catch (e) { /* ignore corrupt state */ }
+            if (!ed.files.length) ed.files.push(edMake('untitled.txt', ''));
+        }
+        function edPersist() {
+            clearTimeout(edPersistTimer);
+            edPersistTimer = setTimeout(() => {
+                try {
+                    localStorage.setItem(ED_STORE, JSON.stringify({ files: ed.files, active: ed.active, wrap: ed.wrap, size: ed.size }));
+                } catch (e) {
+                    if (!edQuotaWarned) { edQuotaWarned = true; showToast('Draft too large to auto-save. Use Save to keep your file.'); }
+                }
+            }, 400);
+        }
+
+        /* --- rendering --- */
+        function edRenderTabs() {
+            const box = $('edTabs');
+            box.innerHTML = '';
+            ed.files.forEach((f, i) => {
+                const tab = document.createElement('div');
+                tab.className = 'ed-tab flex items-center pl-3 pr-1 py-1 text-xs rounded-t-lg border-b-2 whitespace-nowrap ' +
+                    (i === ed.active ? 'active accent-text font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200');
+                const label = document.createElement('button');
+                label.textContent = (edDirty(f) ? '\u25CF ' : '') + (f.name || 'untitled');
+                label.className = 'max-w-[10rem] truncate';
+                label.addEventListener('click', () => edSwitch(i));
+                const x = document.createElement('button');
+                x.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                x.className = 'p-2 text-zinc-500 hover:text-white';
+                x.setAttribute('aria-label', 'Close ' + f.name);
+                x.addEventListener('click', (e) => { e.stopPropagation(); edClose(i); });
+                tab.appendChild(label);
+                tab.appendChild(x);
+                box.appendChild(tab);
+            });
+        }
+        function edUpdateGutter() {
+            const n = edArea.value.split('\n').length;
+            if (n !== edLines) {
+                edLines = n;
+                let s = '';
+                for (let i = 1; i <= n; i++) s += i + (i < n ? '\n' : '');
+                edGutter.textContent = s;
+            }
+            edGutter.scrollTop = edArea.scrollTop;
+        }
+        function edUpdateStatus() {
+            const v = edArea.value, f = edCur();
+            const words = (v.trim().match(/\S+/g) || []).length;
+            const lines = v.split('\n').length;
+            $('edStats').textContent = v.length.toLocaleString() + ' chars \u00B7 ' + words.toLocaleString() + ' words \u00B7 ' + lines.toLocaleString() + ' line' + (lines === 1 ? '' : 's');
+            const ext = edExt(f.name);
+            $('edType').textContent = ED_TYPES[ext] || (ext ? ext.toUpperCase() + ' file' : 'Plain text');
+            const dirty = edDirty(f);
+            const st = $('edSaveState');
+            st.textContent = dirty ? 'Unsaved' : 'Saved';
+            st.classList.toggle('accent-text', !dirty);
+            st.classList.toggle('text-amber-400', dirty);
+            edUpdatePos();
+        }
+        function edUpdatePos() {
+            const pos = edArea.selectionStart, before = edArea.value.slice(0, pos);
+            const ln = before.split('\n').length;
+            const col = pos - (before.lastIndexOf('\n') + 1) + 1;
+            $('edPos').textContent = 'Ln ' + ln + ', Col ' + col;
+        }
+        function edApplyView() {
+            edArea.classList.toggle('wrap-on', ed.wrap);
+            edArea.setAttribute('wrap', ed.wrap ? 'soft' : 'off');
+            edGutter.style.display = ed.wrap ? 'none' : '';
+            $('edWrapState').textContent = ed.wrap ? 'On' : 'Off';
+            $('view-ide').style.setProperty('--ed-size', ed.size + 'px');
+        }
+        function edShow() {
+            const f = edCur();
+            edArea.value = f.content;
+            $('edName').value = f.name;
+            edLines = 0;
+            edUpdateGutter();
+            edUpdateStatus();
+            edRenderTabs();
+            edLastDirty = edDirty(f);
+        }
+
+        /* --- editing --- */
+        function edInsert(start, end, text) {
+            edArea.focus();
+            edArea.setSelectionRange(start, end);
+            let ok = false;
+            try { ok = document.execCommand('insertText', false, text); } catch (e) { ok = false; }
+            if (!ok) {
+                edArea.setRangeText(text, start, end, 'end');
+                edArea.dispatchEvent(new Event('input'));
+            }
+        }
+        edArea.addEventListener('input', () => {
+            const f = edCur();
+            f.content = edArea.value;
+            edUpdateGutter();
+            edUpdateStatus();
+            const d = edDirty(f);
+            if (d !== edLastDirty) { edLastDirty = d; edRenderTabs(); }
+            edPersist();
+        });
+        edArea.addEventListener('scroll', () => { edGutter.scrollTop = edArea.scrollTop; });
+        ['keyup', 'click', 'focus'].forEach(ev => edArea.addEventListener(ev, edUpdatePos));
+
+        edArea.addEventListener('keydown', (e) => {
+            const v = edArea.value, s = edArea.selectionStart, en = edArea.selectionEnd;
+            if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                const multi = s !== en && v.slice(s, en).indexOf('\n') !== -1;
+                if (multi || e.shiftKey) {
+                    const lineStart = v.lastIndexOf('\n', s - 1) + 1;
+                    const block = v.slice(lineStart, en).split('\n')
+                        .map(l => e.shiftKey ? l.replace(/^( {1,4}|\t)/, '') : '    ' + l).join('\n');
+                    edInsert(lineStart, en, block);
+                    edArea.setSelectionRange(lineStart, lineStart + block.length);
+                } else {
+                    edInsert(s, en, '    ');
+                }
+            } else if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+                const lineStart = v.lastIndexOf('\n', s - 1) + 1;
+                const indent = (/^[ \t]*/.exec(v.slice(lineStart, s)) || [''])[0];
+                if (indent) {
+                    e.preventDefault();
+                    edInsert(s, en, '\n' + indent);
+                }
+            }
+        });
+
+        /* --- file tabs --- */
+        function edSwitch(i) {
+            if (i === ed.active || !ed.files[i]) return;
+            ed.active = i;
+            edShow();
+            edPersist();
+        }
+        function edNew(name, content) {
+            ed.files.push(edMake(name || 'untitled.txt', content || ''));
+            ed.active = ed.files.length - 1;
+            edShow();
+            edPersist();
+            edArea.focus();
+        }
+        function edClose(i) {
+            const f = ed.files[i];
+            if (!f) return;
+            if (edDirty(f) && !confirm('Close "' + f.name + '" without saving your changes?')) return;
+            delete edHandles[f.id];
+            ed.files.splice(i, 1);
+            if (!ed.files.length) ed.files.push(edMake('untitled.txt', ''));
+            if (i < ed.active) ed.active--;
+            ed.active = Math.min(ed.active, ed.files.length - 1);
+            edShow();
+            edPersist();
+        }
+
+        /* --- name & extension --- */
+        $('edName').addEventListener('input', () => {
+            const f = edCur();
+            f.name = $('edName').value;
+            edUpdateStatus();
+            edRenderTabs();
+            edPersist();
+        });
+        $('edExtPick').addEventListener('change', (e) => {
+            const ext = e.target.value;
+            e.target.value = '';
+            if (!ext) return;
+            const f = edCur();
+            const base = (f.name || '').replace(/\.[^.\/\\]+$/, '') || 'untitled';
+            f.name = base + ext;
+            $('edName').value = f.name;
+            delete edHandles[f.id]; // new extension -> treat as a new file on disk
+            edUpdateStatus();
+            edRenderTabs();
+            edPersist();
+        });
+
+        /* --- save --- */
+        function edMarkSaved(f) {
+            f.saved = f.content;
+            edLastDirty = false;
+            edUpdateStatus();
+            edRenderTabs();
+            edPersist();
+        }
+        function edDownload(f) {
+            const mime = ED_MIME[edExt(f.name)];
+            const blob = new Blob([f.content], { type: mime ? mime + ';charset=utf-8' : 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = f.name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+        }
+        async function edWriteHandle(handle, text) {
+            const w = await handle.createWritable();
+            await w.write(text);
+            await w.close();
+        }
+        async function edSave(forceAs) {
+            const f = edCur();
+            f.name = edClean(f.name);
+            $('edName').value = f.name;
+            const handle = edHandles[f.id];
+            try {
+                if (handle && !forceAs) {
+                    await edWriteHandle(handle, f.content);
+                    edMarkSaved(f);
+                    showToast('Saved ' + f.name);
+                    return;
+                }
+                if (window.showSaveFilePicker) {
+                    const h = await window.showSaveFilePicker({ suggestedName: f.name });
+                    await edWriteHandle(h, f.content);
+                    edHandles[f.id] = h;
+                    if (h.name) { f.name = h.name; $('edName').value = f.name; }
+                    edMarkSaved(f);
+                    showToast('Saved ' + f.name);
+                    return;
+                }
+            } catch (err) {
+                if (err && err.name === 'AbortError') return;
+                /* any other failure: fall back to a normal download */
+            }
+            if (forceAs) {
+                const n = prompt('Save as (file name and extension):', f.name);
+                if (n === null) return;
+                f.name = edClean(n);
+                $('edName').value = f.name;
+            }
+            edDownload(f);
+            edMarkSaved(f);
+            showToast('Downloaded ' + f.name);
+        }
+
+        /* --- open --- */
+        async function edAddOpened(items) {
+            let added = 0;
+            for (const it of items) {
+                const file = it.file;
+                if (file.size > 5 * 1024 * 1024) { showToast(file.name + ' is over 5 MB, skipped'); continue; }
+                let text;
+                try { text = await file.text(); } catch (e) { showToast('Could not read ' + file.name); continue; }
+                if (text.slice(0, 4096).indexOf('\u0000') !== -1) { showToast(file.name + ' looks like a binary file, skipped'); continue; }
+                if (!added && ed.files.length === 1 && !edCur().content && edCur().name === 'untitled.txt') {
+                    delete edHandles[edCur().id];
+                    ed.files.length = 0;
+                }
+                const nf = edMake(file.name, text);
+                ed.files.push(nf);
+                if (it.handle) edHandles[nf.id] = it.handle;
+                added++;
+            }
+            if (added) {
+                ed.active = ed.files.length - 1;
+                edShow();
+                edPersist();
+                showToast('Opened ' + added + ' file' + (added === 1 ? '' : 's'));
+            }
+        }
+        async function edOpen() {
+            if (window.showOpenFilePicker) {
+                try {
+                    const hs = await window.showOpenFilePicker({ multiple: true });
+                    const items = [];
+                    for (const h of hs) items.push({ file: await h.getFile(), handle: h });
+                    await edAddOpened(items);
+                    return;
+                } catch (err) {
+                    if (err && err.name === 'AbortError') return;
+                }
+            }
+            $('edFileInput').click();
+        }
+        $('edFileInput').addEventListener('change', async (e) => {
+            const items = Array.from(e.target.files || []).map(file => ({ file: file }));
+            e.target.value = '';
+            await edAddOpened(items);
+        });
+
+        /* --- buttons --- */
+        $('edBtnNew').addEventListener('click', () => edNew('untitled.txt', ''));
+        $('edTemplate').addEventListener('change', (e) => {
+            const t = ED_TEMPLATES[e.target.value];
+            e.target.value = '';
+            if (t) edNew(t.name, t.content);
+        });
+        $('edBtnOpen').addEventListener('click', edOpen);
+        $('edBtnSave').addEventListener('click', () => edSave(false));
+        $('edBtnSaveAs').addEventListener('click', () => edSave(true));
+
+        $('edBtnWrap').addEventListener('click', () => { ed.wrap = !ed.wrap; edApplyView(); edPersist(); });
+        $('edFontUp').addEventListener('click', () => { ed.size = Math.min(ed.size + 1, 24); edApplyView(); edPersist(); });
+        $('edFontDown').addEventListener('click', () => { ed.size = Math.max(ed.size - 1, 10); edApplyView(); edPersist(); });
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 's' && !$('view-ide').classList.contains('hidden')) {
+                e.preventDefault();
+                edSave(false);
+            }
+        });
+        window.addEventListener('beforeunload', (e) => {
+            if (ed.files.some(edDirty)) { e.preventDefault(); e.returnValue = ''; }
+        });
+
+        /* --- find & replace --- */
+        $('edBtnFind').addEventListener('click', () => {
+            const bar = $('edFindBar');
+            const show = bar.classList.contains('hidden');
+            bar.classList.toggle('hidden', !show);
+            bar.classList.toggle('flex', show);
+            if (show) {
+                const sel = edArea.value.slice(edArea.selectionStart, edArea.selectionEnd);
+                if (sel && sel.indexOf('\n') === -1) $('edFindInput').value = sel;
+                $('edFindInput').focus();
+            }
+        });
+        function edReveal(i) {
+            const line = edArea.value.slice(0, i).split('\n').length - 1;
+            const lh = parseFloat(getComputedStyle(edArea).lineHeight) || 20;
+            const top = line * lh;
+            if (top < edArea.scrollTop || top > edArea.scrollTop + edArea.clientHeight - lh * 3) {
+                edArea.scrollTop = Math.max(0, top - edArea.clientHeight / 2);
+            }
+        }
+        function edIndexOf(from) {
+            const q = $('edFindInput').value;
+            if (!q) return -1;
+            const cs = $('edCase').checked;
+            const hay = cs ? edArea.value : edArea.value.toLowerCase();
+            const needle = cs ? q : q.toLowerCase();
+            const i = hay.indexOf(needle, from);
+            return i === -1 ? hay.indexOf(needle, 0) : i;
+        }
+        function edFindNext() {
+            const q = $('edFindInput').value;
+            if (!q) return false;
+            const i = edIndexOf(edArea.selectionEnd);
+            if (i === -1) { showToast('Not found'); return false; }
+            edArea.focus();
+            edArea.setSelectionRange(i, i + q.length);
+            edReveal(i);
+            edUpdatePos();
+            return true;
+        }
+        function edSelectionMatches() {
+            const q = $('edFindInput').value;
+            if (!q) return false;
+            const sel = edArea.value.slice(edArea.selectionStart, edArea.selectionEnd);
+            return $('edCase').checked ? sel === q : sel.toLowerCase() === q.toLowerCase();
+        }
+        $('edFindNext').addEventListener('click', edFindNext);
+        $('edFindInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); edFindNext(); } });
+        $('edReplaceOne').addEventListener('click', () => {
+            if (edSelectionMatches()) edInsert(edArea.selectionStart, edArea.selectionEnd, $('edReplaceInput').value);
+            edFindNext();
+        });
+        $('edReplaceAll').addEventListener('click', () => {
+            const q = $('edFindInput').value;
+            if (!q) return;
+            const rep = $('edReplaceInput').value;
+            const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $('edCase').checked ? 'g' : 'gi');
+            let count = 0;
+            const out = edArea.value.replace(re, () => { count++; return rep; });
+            if (!count) { showToast('Not found'); return; }
+            edInsert(0, edArea.value.length, out);
+            showToast('Replaced ' + count + (count === 1 ? ' match' : ' matches'));
+        });
+
+        /* --- preview (sandboxed) --- */
+        $('previewIframe').setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups');
+        function edClosePreview() {
+            $('previewModal').classList.add('hidden');
+            $('previewIframe').src = 'about:blank';
+            if (edPreviewUrl) { URL.revokeObjectURL(edPreviewUrl); edPreviewUrl = null; }
+        }
+        $('edBtnPreview').addEventListener('click', () => {
+            const f = edCur();
+            const ext = edExt(f.name);
+            if (ext !== 'html' && ext !== 'htm' && ext !== 'svg') {
+                showToast('Preview works for .html, .htm and .svg files');
+                return;
+            }
+            if (edPreviewUrl) URL.revokeObjectURL(edPreviewUrl);
+            const blob = new Blob([f.content], { type: (ext === 'svg' ? 'image/svg+xml' : 'text/html') + ';charset=utf-8' });
+            edPreviewUrl = URL.createObjectURL(blob);
+            $('previewIframe').src = edPreviewUrl;
+            $('previewModal').classList.remove('hidden');
+        });
+        $('closePreviewBtn').addEventListener('click', edClosePreview);
+
+        /* --- init --- */
+        edLoad();
+        edApplyView();
+        edShow();
+
+        /* ---------- PWA service worker registration ---------- */
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => console.log('ServiceWorker registration failed:', err));
+            });
+        }
+
+        /* ---------- Shared helpers (tabs 2-4) ---------- */
+        const store = {
+            get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+            set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } }
+        };
+        const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        function debounce(fn, ms) { let t; return function () { const a = arguments; clearTimeout(t); t = setTimeout(() => fn.apply(null, a), ms); }; }
+        function goTab(name) {
+            const b = document.querySelector('#navTabs [data-tab="' + name + '"]');
+            if (b) b.click();
+        }
+        async function copyText(text, label) {
+            text = String(text == null ? '' : text);
+            if (!text) { showToast('Nothing to copy'); return; }
+            let ok = false;
+            try { await navigator.clipboard.writeText(text); ok = true; } catch (e) { ok = false; }
+            if (!ok) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+                ta.remove();
+            }
+            showToast(ok ? (label ? label + ' copied' : 'Copied') : 'Copy failed');
+        }
+        function downloadBlob(blob, name) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+        }
+        function downloadText(text, name, mime) {
+            downloadBlob(new Blob([text], { type: (mime || 'text/plain') + ';charset=utf-8' }), name);
+        }
+        function sendToEditor(name, content) {
+            edNew(name, content);
+            goTab('ide');
+            showToast('Opened ' + name + ' in Editor');
+        }
+        function fmtBytes(n) {
+            n = Number(n) || 0;
+            if (n < 1024) return n + ' B';
+            const u = ['KB', 'MB', 'GB', 'TB'];
+            let i = -1;
+            do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+            return n.toFixed(n < 10 ? 2 : 1) + ' ' + u[i];
+        }
+        function relTime(ms) { // ms = target minus now
+            const s = Math.round(Math.abs(ms) / 1000);
+            if (s < 1) return 'now';
+            const U = [['year', 31536000], ['month', 2592000], ['day', 86400], ['hour', 3600], ['minute', 60], ['second', 1]];
+            let txt = '';
+            for (let i = 0; i < U.length; i++) {
+                if (s >= U[i][1]) { const q = Math.floor(s / U[i][1]); txt = q + ' ' + U[i][0] + (q === 1 ? '' : 's'); break; }
+            }
+            return ms < 0 ? txt + ' ago' : 'in ' + txt;
+        }
+        // Labelled read-only field with a copy button. Returns the input.
+        function outRow(box, label) {
+            const wrap = document.createElement('div');
+            wrap.className = 'space-y-1';
+            const l = document.createElement('div');
+            l.className = 'sub font-semibold';
+            l.textContent = label;
+            const line = document.createElement('div');
+            line.className = 'flex gap-2';
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.readOnly = true;
+            inp.className = 'fld';
+            inp.setAttribute('aria-label', label);
+            const b = document.createElement('button');
+            b.className = 'btn';
+            b.innerHTML = '<i class="fa-solid fa-copy"></i>';
+            b.setAttribute('aria-label', 'Copy ' + label);
+            b.addEventListener('click', () => copyText(inp.value, label));
+            line.appendChild(inp);
+            line.appendChild(b);
+            wrap.appendChild(l);
+            wrap.appendChild(line);
+            box.appendChild(wrap);
+            inp._lbl = l;
+            return inp;
+        }
+        const canvasBlob = (c) => new Promise((res) => c.toBlob(res, 'image/png'));
+
+        /* byte / encoding helpers */
+        const utf8 = new TextEncoder();
+        const hexOf = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+        function hexToBytes(h) {
+            h = h.replace(/0x/gi, '').replace(/[\s:,-]/g, '');
+            if (!/^[0-9a-fA-F]*$/.test(h) || h.length % 2) throw new Error('bad hex');
+            const out = new Uint8Array(h.length / 2);
+            for (let i = 0; i < out.length; i++) out[i] = parseInt(h.substr(i * 2, 2), 16);
+            return out;
+        }
+        function bytesToB64(bytes) {
+            let s = '';
+            for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+            return btoa(s);
+        }
+        function b64ToBytes(str) {
+            str = str.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+            while (str.length % 4) str += '=';
+            const bin = atob(str);
+            const out = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+            return out;
+        }
+        const bytesToText = (bytes) => new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+
+        /* ---------- Tab 2: PWA Studio ---------- */
+        const PWA_KEY = 'bd_pwa_v1';
+        const PWA_IDS = ['pwaName', 'pwaShort', 'pwaDesc', 'pwaStart', 'pwaScope', 'pwaTheme', 'pwaBg', 'pwaDisplay', 'pwaOrient', 'pwaMaskable', 'pwaFit', 'pwaFillBg', 'pwaSwName', 'pwaSwVer', 'pwaSwStrategy', 'pwaSwFiles'];
+        const PWA_DEFAULTS = {
+            pwaName: 'My App', pwaShort: 'MyApp', pwaDesc: '', pwaStart: 'index.html', pwaScope: './',
+            pwaTheme: '#10b981', pwaBg: '#000000', pwaDisplay: 'standalone', pwaOrient: 'any',
+            pwaMaskable: true, pwaFit: 'cover', pwaFillBg: false,
+            pwaSwName: 'my-app', pwaSwVer: 'v1', pwaSwStrategy: 'swr',
+            pwaSwFiles: './\nindex.html\nmanifest.json\nicon.png\nsmall-icon.png'
+        };
+        const pwaState = Object.assign({}, PWA_DEFAULTS, store.get(PWA_KEY, {}));
+        PWA_IDS.forEach((id) => {
+            const el = $(id);
+            if (el.type === 'checkbox') el.checked = !!pwaState[id]; else el.value = pwaState[id];
+        });
+        const pwaVal = (id, d) => (($(id).value || '').trim() || d);
+
+        function pwaManifest() {
+            const icons = [
+                { src: 'icon.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+                { src: 'small-icon.png', sizes: '192x192', type: 'image/png', purpose: 'any' }
+            ];
+            if ($('pwaMaskable').checked) icons.push({ src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' });
+            const m = { name: pwaVal('pwaName', 'My App'), short_name: pwaVal('pwaShort', pwaVal('pwaName', 'My App')) };
+            const desc = pwaVal('pwaDesc', '');
+            if (desc) m.description = desc;
+            m.start_url = pwaVal('pwaStart', 'index.html');
+            const scope = pwaVal('pwaScope', '');
+            if (scope) m.scope = scope;
+            m.display = $('pwaDisplay').value;
+            if ($('pwaOrient').value !== 'any') m.orientation = $('pwaOrient').value;
+            m.background_color = $('pwaBg').value;
+            m.theme_color = $('pwaTheme').value;
+            m.icons = icons;
+            return JSON.stringify(m, null, 4) + '\n';
+        }
+        function pwaMeta() {
+            const short = esc(pwaVal('pwaShort', pwaVal('pwaName', 'My App')));
+            return [
+                '<link rel="manifest" href="manifest.json">',
+                '<meta name="theme-color" content="' + $('pwaTheme').value + '">',
+                '<meta name="mobile-web-app-capable" content="yes">',
+                '<meta name="apple-mobile-web-app-capable" content="yes">',
+                '<meta name="apple-mobile-web-app-title" content="' + short + '">',
+                '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
+                '<link rel="apple-touch-icon" href="apple-touch-icon.png">',
+                '<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">',
+                '<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">',
+                '',
+                '<!-- Put this before </body> -->',
+                '<script>',
+                "    if ('serviceWorker' in navigator) {",
+                "        window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));",
+                '    }',
+                '<\/script>',
+                ''
+            ].join('\n');
+        }
+        function pwaSw() {
+            const cache = pwaVal('pwaSwName', 'app') + '-' + pwaVal('pwaSwVer', 'v1');
+            const files = $('pwaSwFiles').value.split('\n').map((s) => s.trim()).filter(Boolean);
+            const L = [
+                '// Generated by Beaver Dam',
+                'const CACHE = ' + JSON.stringify(cache) + ';',
+                'const ASSETS = ' + JSON.stringify(files, null, 4) + ';',
+                '',
+                "self.addEventListener('install', (event) => {",
+                '    event.waitUntil(',
+                '        caches.open(CACHE).then((cache) =>',
+                '            // add one by one so a single missing file cannot break the install',
+                '            Promise.all(ASSETS.map((url) => cache.add(url).catch(() => null)))',
+                '        )',
+                '    );',
+                '    self.skipWaiting();',
+                '});',
+                '',
+                "self.addEventListener('activate', (event) => {",
+                '    event.waitUntil(',
+                '        caches.keys()',
+                '            .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))',
+                '            .then(() => self.clients.claim())',
+                '    );',
+                '});',
+                '',
+                "self.addEventListener('fetch', (event) => {",
+                '    const req = event.request;',
+                "    if (req.method !== 'GET' || !req.url.startsWith('http')) return;"
+            ];
+            const strat = $('pwaSwStrategy').value;
+            if (strat === 'cache') {
+                L.push(
+                    '    event.respondWith(',
+                    '        caches.match(req).then((cached) => cached || fetch(req).then((res) => {',
+                    '            if (res && res.ok) {',
+                    '                const copy = res.clone();',
+                    '                caches.open(CACHE).then((c) => c.put(req, copy));',
+                    '            }',
+                    '            return res;',
+                    "        }).catch(() => (req.mode === 'navigate' ? caches.match('index.html') : undefined)))",
+                    '    );');
+            } else if (strat === 'network') {
+                L.push(
+                    '    event.respondWith(',
+                    '        fetch(req).then((res) => {',
+                    '            if (res && res.ok) {',
+                    '                const copy = res.clone();',
+                    '                caches.open(CACHE).then((c) => c.put(req, copy));',
+                    '            }',
+                    '            return res;',
+                    "        }).catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('index.html') : undefined)))",
+                    '    );');
+            } else {
+                L.push(
+                    '    // serve the cached copy instantly, refresh it in the background',
+                    '    event.respondWith(',
+                    '        caches.open(CACHE).then((cache) =>',
+                    '            cache.match(req).then((cached) => {',
+                    '                const network = fetch(req)',
+                    '                    .then((res) => {',
+                    "                        if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone());",
+                    '                        return res;',
+                    '                    })',
+                    "                    .catch(() => cached || (req.mode === 'navigate' ? cache.match('index.html') : undefined));",
+                    '                return cached || network;',
+                    '            })',
+                    '        )',
+                    '    );');
+            }
+            L.push('});', '');
+            return L.join('\n');
+        }
+        function pwaRefresh() {
+            $('pwaManifestOut').value = pwaManifest();
+            $('pwaMetaOutput').value = pwaMeta();
+            $('pwaSwOut').value = pwaSw();
+        }
+
+        /* icons */
+        const MASK_SCALE = 0.7;
+        const ICON_SPECS = [
+            { file: 'icon.png', size: 512 },
+            { file: 'small-icon.png', size: 192 },
+            { file: 'icon-maskable-512.png', size: 512, maskable: true },
+            { file: 'apple-touch-icon.png', size: 180, apple: true },
+            { file: 'favicon-32.png', size: 32 },
+            { file: 'favicon-16.png', size: 16 }
+        ];
+        let pwaImg = null, pwaImgUrl = null;
+
+        function pwaRenderIcon(spec) {
+            const size = spec.size;
+            const c = document.createElement('canvas');
+            c.width = c.height = size;
+            const ctx = c.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            if (spec.maskable || spec.apple || $('pwaFillBg').checked) {
+                ctx.fillStyle = $('pwaBg').value;
+                ctx.fillRect(0, 0, size, size);
+            }
+            const iw = pwaImg.naturalWidth || 512, ih = pwaImg.naturalHeight || 512;
+            const box = spec.maskable ? size * MASK_SCALE : size;
+            const off = (size - box) / 2;
+            let sx = 0, sy = 0, sw = iw, sh = ih, dx = off, dy = off, dw = box, dh = box;
+            if ($('pwaFit').value === 'cover') {
+                const s = Math.min(iw, ih);
+                sx = (iw - s) / 2; sy = (ih - s) / 2; sw = s; sh = s;
+            } else {
+                const r = Math.min(box / iw, box / ih);
+                dw = iw * r; dh = ih * r;
+                dx = off + (box - dw) / 2; dy = off + (box - dh) / 2;
+            }
+            ctx.drawImage(pwaImg, sx, sy, sw, sh, dx, dy, dw, dh);
+            return c;
+        }
+        function pwaRenderPreviews() {
+            const grid = $('pwaIconGrid');
+            grid.innerHTML = '';
+            $('pwaZipBtn').disabled = !pwaImg;
+            if (!pwaImg) { grid.innerHTML = '<span class="sub">Choose an image to preview every icon size.</span>'; return; }
+            ICON_SPECS.forEach((spec) => {
+                const c = pwaRenderIcon(spec);
+                const shown = Math.min(spec.size, 72);
+                c.style.width = c.style.height = shown + 'px';
+                c.style.background = 'repeating-conic-gradient(#52525b 0% 25%, #3f3f46 0% 50%) 50% / 10px 10px';
+                if (spec.maskable) c.style.borderRadius = '50%';
+                const tile = document.createElement('button');
+                tile.type = 'button';
+                tile.className = 'icon-tile';
+                tile.title = 'Download ' + spec.file;
+                const cap = document.createElement('span');
+                cap.className = 'sub';
+                cap.style.textAlign = 'center';
+                cap.style.wordBreak = 'break-all';
+                cap.textContent = spec.file;
+                const sz = document.createElement('span');
+                sz.className = 'sub';
+                sz.textContent = spec.size + ' px' + (spec.maskable ? ' · maskable' : '');
+                tile.appendChild(c);
+                tile.appendChild(cap);
+                tile.appendChild(sz);
+                tile.addEventListener('click', async () => {
+                    downloadBlob(await canvasBlob(pwaRenderIcon(spec)), spec.file);
+                    showToast('Downloaded ' + spec.file);
+                });
+                grid.appendChild(tile);
+            });
+        }
+        const pwaPreviewsSoon = debounce(pwaRenderPreviews, 120);
+
+        $('pwaIconInput').addEventListener('change', (e) => {
+            const f = e.target.files && e.target.files[0];
+            if (!f) return;
+            const url = URL.createObjectURL(f);
+            const img = new Image();
+            img.onload = () => {
+                if (pwaImgUrl) URL.revokeObjectURL(pwaImgUrl);
+                pwaImgUrl = url;
+                pwaImg = img;
+                pwaRenderPreviews();
+                const w = img.naturalWidth, h = img.naturalHeight;
+                showToast(w && h && Math.min(w, h) < 512 ? 'Loaded (' + w + '×' + h + ') — under 512 px will look soft' : 'Image loaded');
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); showToast('Could not read that image'); };
+            img.src = url;
+        });
+        $('pwaZipBtn').addEventListener('click', async () => {
+            if (!pwaImg) return;
+            try {
+                const items = [];
+                for (const spec of ICON_SPECS) items.push([spec.file, await canvasBlob(pwaRenderIcon(spec))]);
+                if (window.JSZip) {
+                    const zip = new JSZip();
+                    items.forEach((it) => zip.file(it[0], it[1]));
+                    zip.file('manifest.json', pwaManifest());
+                    zip.file('head-tags.html', pwaMeta());
+                    zip.file('sw.js', pwaSw());
+                    downloadBlob(await zip.generateAsync({ type: 'blob' }), 'beaver-pwa-assets.zip');
+                    showToast('Downloaded ZIP (' + (items.length + 3) + ' files)');
+                } else {
+                    items.forEach((it, i) => setTimeout(() => downloadBlob(it[1], it[0]), i * 300));
+                    showToast('ZIP library not loaded — downloading icons one by one');
+                }
+            } catch (err) {
+                showToast('Could not build the ZIP');
+            }
+        });
+
+        PWA_IDS.forEach((id) => {
+            const el = $(id);
+            const handler = () => {
+                pwaState[id] = el.type === 'checkbox' ? el.checked : el.value;
+                store.set(PWA_KEY, pwaState);
+                pwaRefresh();
+                if (id === 'pwaBg' || id === 'pwaFit' || id === 'pwaFillBg') pwaPreviewsSoon();
+            };
+            el.addEventListener('input', handler);
+            el.addEventListener('change', handler);
+        });
+        $('btnCopyManifest').addEventListener('click', () => copyText($('pwaManifestOut').value, 'manifest.json'));
+        $('btnEditManifest').addEventListener('click', () => sendToEditor('manifest.json', $('pwaManifestOut').value));
+        $('btnDlManifest').addEventListener('click', () => downloadText($('pwaManifestOut').value, 'manifest.json', 'application/manifest+json'));
+        $('btnCopyMetaTags').addEventListener('click', () => copyText($('pwaMetaOutput').value, 'Head tags'));
+        $('btnEditMeta').addEventListener('click', () => sendToEditor('head-tags.html', $('pwaMetaOutput').value));
+        $('btnCopySw').addEventListener('click', () => copyText($('pwaSwOut').value, 'sw.js'));
+        $('btnEditSw').addEventListener('click', () => sendToEditor('sw.js', $('pwaSwOut').value));
+        $('btnDlSw').addEventListener('click', () => downloadText($('pwaSwOut').value, 'sw.js', 'text/javascript'));
+        pwaRefresh();
+        pwaRenderPreviews();
+
+        /* ---------- Tab 3: Crypto & Hashes ---------- */
+        const cInput = $('cryptoInput');
+        const CROWS = {};
+        [['md5', 'MD5'], ['sha1', 'SHA-1'], ['sha256', 'SHA-256'], ['sha512', 'SHA-512']].forEach((p) => { CROWS[p[0]] = outRow($('cryptoHashRows'), p[1]); });
+        CROWS.hmac = outRow($('cryptoHmacRow'), 'HMAC');
+        [['b64', 'Base64'], ['url', 'URL'], ['hex', 'Hex']].forEach((p) => { CROWS[p[0]] = outRow($('cryptoEncRows'), p[1]); });
+        let cryptoMode = 'enc';
+
+        function cryptoUpdate() {
+            const val = cInput.value;
+            const CJ = window.CryptoJS;
+            const hashFns = CJ ? { md5: CJ.MD5, sha1: CJ.SHA1, sha256: CJ.SHA256, sha512: CJ.SHA512 } : null;
+            ['md5', 'sha1', 'sha256', 'sha512'].forEach((k) => {
+                CROWS[k].classList.remove('bad');
+                if (!val) CROWS[k].value = '';
+                else if (!hashFns) CROWS[k].value = 'Hash library not loaded (open once while online)';
+                else CROWS[k].value = hashFns[k](val).toString();
+            });
+            const key = $('hmacKey').value;
+            const hm = CROWS.hmac;
+            hm.classList.remove('bad');
+            if (!val || !key) hm.value = '';
+            else if (!CJ) hm.value = 'Hash library not loaded (open once while online)';
+            else hm.value = CJ['Hmac' + $('hmacAlg').value](val, key).toString();
+
+            const setEnc = (k, fn) => {
+                const row = CROWS[k];
+                row.classList.remove('bad');
+                if (!val) { row.value = ''; return; }
+                try { row.value = fn(val); } catch (e) { row.value = 'Not valid input for decoding'; row.classList.add('bad'); }
+            };
+            if (cryptoMode === 'enc') {
+                setEnc('b64', (v) => bytesToB64(utf8.encode(v)));
+                setEnc('url', (v) => encodeURIComponent(v));
+                setEnc('hex', (v) => hexOf(utf8.encode(v)));
+            } else {
+                setEnc('b64', (v) => bytesToText(b64ToBytes(v.trim())));
+                setEnc('url', (v) => decodeURIComponent(v));
+                setEnc('hex', (v) => bytesToText(hexToBytes(v)));
+            }
+            CROWS.b64._lbl.textContent = cryptoMode === 'enc' ? 'Base64 (encoded)' : 'Base64 (decoded text)';
+            CROWS.url._lbl.textContent = cryptoMode === 'enc' ? 'URL (encoded)' : 'URL (decoded text)';
+            CROWS.hex._lbl.textContent = cryptoMode === 'enc' ? 'Hex (encoded)' : 'Hex (decoded text)';
+        }
+        cInput.addEventListener('input', cryptoUpdate);
+        $('hmacKey').addEventListener('input', cryptoUpdate);
+        $('hmacAlg').addEventListener('change', cryptoUpdate);
+        document.querySelectorAll('#cryptoMode button').forEach((b) => {
+            b.addEventListener('click', () => {
+                cryptoMode = b.getAttribute('data-mode');
+                document.querySelectorAll('#cryptoMode button').forEach((x) => x.classList.toggle('active', x === b));
+                cryptoUpdate();
+            });
+        });
+        cryptoUpdate();
+
+        /* file hash */
+        const FILE_ALGS = [['SHA-1', 'sha1'], ['SHA-256', 'sha256'], ['SHA-512', 'sha512']];
+        const FROWS = {};
+        FILE_ALGS.forEach((p) => { FROWS[p[1]] = outRow($('fileHashRows'), p[0]); });
+        function fileHashCompare() {
+            const out = $('fileHashVerdict');
+            const exp = $('fileHashExpect').value.trim().toLowerCase().replace(/[\s:]/g, '');
+            if (!exp) { out.textContent = ''; return; }
+            if (!FILE_ALGS.some((p) => FROWS[p[1]].value)) { out.textContent = 'Choose a file first'; out.className = 'sub'; return; }
+            const hit = FILE_ALGS.find((p) => FROWS[p[1]].value === exp);
+            if (hit) { out.textContent = '✓ Matches ' + hit[0]; out.className = 'ok text-xs font-semibold'; }
+            else { out.textContent = '✗ Does not match any hash'; out.className = 'bad text-xs font-semibold'; }
+        }
+        $('fileHashExpect').addEventListener('input', fileHashCompare);
+        $('fileHashInput').addEventListener('change', async (e) => {
+            const f = e.target.files && e.target.files[0];
+            const st = $('fileHashStatus');
+            FILE_ALGS.forEach((p) => { FROWS[p[1]].value = ''; });
+            $('fileHashVerdict').textContent = '';
+            if (!f) { st.textContent = ''; return; }
+            if (!(window.crypto && crypto.subtle)) { st.textContent = 'File hashing needs a secure (https) context.'; return; }
+            if (f.size > 200 * 1024 * 1024) { st.textContent = 'That file is over 200 MB — too large to hash here.'; return; }
+            st.textContent = 'Hashing ' + f.name + ' (' + fmtBytes(f.size) + ')...';
+            try {
+                const buf = await f.arrayBuffer();
+                for (const p of FILE_ALGS) {
+                    FROWS[p[1]].value = hexOf(new Uint8Array(await crypto.subtle.digest(p[0], buf)));
+                }
+                st.textContent = f.name + ' · ' + fmtBytes(f.size);
+                fileHashCompare();
+            } catch (err) {
+                st.textContent = 'Could not read that file.';
+            }
+        });
+
+        /* JWT */
+        function jwtDecode() {
+            const t = $('jwtInput').value.trim().replace(/^Bearer\s+/i, '');
+            const st = $('jwtStatus');
+            const clear = () => { $('jwtHeader').textContent = ''; $('jwtPayload').textContent = ''; $('jwtSig').textContent = ''; $('jwtClaims').innerHTML = ''; };
+            if (!t) { st.textContent = ''; clear(); return; }
+            const parts = t.split('.');
+            let header, payload;
+            try {
+                if (parts.length < 2 || parts.length > 3) throw new Error('parts');
+                header = JSON.parse(bytesToText(b64ToBytes(parts[0])));
+                payload = JSON.parse(bytesToText(b64ToBytes(parts[1])));
+            } catch (e) {
+                clear();
+                st.className = 'bad text-[11px]';
+                st.textContent = 'Not a valid JWT (expected 2-3 dot-separated base64url parts).';
+                return;
+            }
+            $('jwtHeader').textContent = JSON.stringify(header, null, 2);
+            $('jwtPayload').textContent = JSON.stringify(payload, null, 2);
+            $('jwtSig').textContent = parts[2] || '(none — unsecured token)';
+            const now = Date.now();
+            const lines = [];
+            [['iat', 'Issued'], ['nbf', 'Not before'], ['exp', 'Expires']].forEach((p) => {
+                const n = payload && payload[p[0]];
+                if (typeof n !== 'number') return;
+                const ms = n * 1000;
+                const expired = p[0] === 'exp' && ms < now;
+                const cls = p[0] === 'exp' ? (expired ? 'bad' : 'ok') : '';
+                lines.push('<div class="kv"><span>' + p[1] + '</span><span class="' + cls + '">' + esc(new Date(ms).toLocaleString()) + ' · ' + esc(relTime(ms - now)) + (expired ? ' (EXPIRED)' : '') + '</span></div>');
+            });
+            $('jwtClaims').innerHTML = lines.join('');
+            if (header && String(header.alg).toLowerCase() === 'none') {
+                st.className = 'warn text-[11px]';
+                st.textContent = 'alg is "none": this token is unsigned.';
+            } else {
+                st.className = 'sub';
+                st.textContent = 'Decoded on this device. The signature is NOT verified.';
+            }
+        }
+        $('jwtInput').addEventListener('input', jwtDecode);
+        $('btnCopyJwt').addEventListener('click', () => copyText($('jwtPayload').textContent, 'Payload'));
+
+        /* generators */
+        const tokenOut = $('tokenOutput');
+        function rndBytes(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return a; }
+        function rndInt(max) { // unbiased integer in [0, max)
+            const lim = Math.floor(0x100000000 / max) * max;
+            const a = new Uint32Array(1);
+            do { crypto.getRandomValues(a); } while (a[0] >= lim);
+            return a[0] % max;
+        }
+        function uuid4() {
+            if (crypto.randomUUID) return crypto.randomUUID();
+            const b = rndBytes(16);
+            b[6] = (b[6] & 0x0f) | 0x40;
+            b[8] = (b[8] & 0x3f) | 0x80;
+            const h = hexOf(b);
+            return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+        }
+        $('btnGenUuid').addEventListener('click', () => { tokenOut.value = uuid4(); $('tokenInfo').textContent = 'UUID v4 (122 random bits)'; });
+        $('btnGenSecret').addEventListener('click', () => {
+            const n = parseInt($('keyBytes').value, 10) || 32;
+            tokenOut.value = hexOf(rndBytes(n));
+            $('tokenInfo').textContent = n + ' random bytes (' + n * 8 + ' bits) as hex';
+        });
+        $('pwLen').addEventListener('input', () => { $('pwLenVal').textContent = $('pwLen').value; });
+        $('btnGenPw').addEventListener('click', () => {
+            const sets = [];
+            if ($('pwUpper').checked) sets.push('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+            if ($('pwLower').checked) sets.push('abcdefghijklmnopqrstuvwxyz');
+            if ($('pwDigits').checked) sets.push('0123456789');
+            if ($('pwSymbols').checked) sets.push('!@#$%^&*()-_=+[]{};:,.?/~');
+            if (!sets.length) { showToast('Pick at least one character type'); return; }
+            const len = parseInt($('pwLen').value, 10) || 20;
+            const all = sets.join('');
+            const chars = sets.map((s) => s[rndInt(s.length)]); // one of each chosen type
+            while (chars.length < len) chars.push(all[rndInt(all.length)]);
+            for (let i = chars.length - 1; i > 0; i--) { const j = rndInt(i + 1); const t = chars[i]; chars[i] = chars[j]; chars[j] = t; }
+            tokenOut.value = chars.slice(0, len).join('');
+            $('tokenInfo').textContent = 'About ' + Math.round(len * Math.log2(all.length)) + ' bits of entropy';
+        });
+        $('btnCopyToken').addEventListener('click', () => copyText(tokenOut.value, 'Value'));
+
+        /* chmod */
+        const chmodBoxes = Array.prototype.slice.call(document.querySelectorAll('.chmod-chk'));
+        function chmodRender(octal) {
+            const sym = octal.split('').map((d) => { const n = parseInt(d, 10); return (n & 4 ? 'r' : '-') + (n & 2 ? 'w' : '-') + (n & 1 ? 'x' : '-'); }).join('');
+            $('chmodSym').textContent = sym;
+            $('chmodCmd').value = 'chmod ' + octal + ' filename';
+        }
+        function chmodFromBoxes() {
+            let sum = 0;
+            chmodBoxes.forEach((c) => { if (c.checked) sum += parseInt(c.getAttribute('data-val'), 10); });
+            const oct = String(sum).padStart(3, '0');
+            $('chmodIn').value = oct;
+            chmodRender(oct);
+        }
+        function chmodFromOctal(oct) {
+            if (!/^[0-7]{3}$/.test(oct)) return;
+            const digits = oct.split('').map(Number);
+            chmodBoxes.forEach((c) => {
+                const v = parseInt(c.getAttribute('data-val'), 10);
+                const pos = v >= 100 ? 0 : v >= 10 ? 1 : 2;
+                const bit = v >= 100 ? v / 100 : v >= 10 ? v / 10 : v;
+                c.checked = (digits[pos] & bit) !== 0;
+            });
+            chmodRender(oct);
+        }
+        chmodBoxes.forEach((c) => c.addEventListener('change', chmodFromBoxes));
+        $('chmodIn').addEventListener('input', () => chmodFromOctal($('chmodIn').value.trim()));
+        ['600', '644', '664', '700', '755', '777'].forEach((o) => {
+            const b = document.createElement('button');
+            b.className = 'btn btn-sm';
+            b.textContent = o;
+            b.addEventListener('click', () => { $('chmodIn').value = o; chmodFromOctal(o); });
+            $('chmodPresets').appendChild(b);
+        });
+        $('btnCopyChmod').addEventListener('click', () => copyText($('chmodCmd').value, 'Command'));
+        chmodFromBoxes();
+
+        /* ---------- Tab 4: Dev Tools ---------- */
+        /* JSON */
+        const jsonInput = $('jsonInput');
+        const jsonStatus = $('jsonStatus');
+        function sortKeys(v) {
+            if (Array.isArray(v)) return v.map(sortKeys);
+            if (v && typeof v === 'object') { const o = {}; Object.keys(v).sort().forEach((k) => { o[k] = sortKeys(v[k]); }); return o; }
+            return v;
+        }
+        function jsonErrorInfo(txt, e) {
+            const msg = (e && e.message) || 'Invalid JSON';
+            const m = /position (\d+)/.exec(msg);
+            const pos = m ? parseInt(m[1], 10) : -1;
+            let text = msg;
+            if (pos >= 0 && !/line \d+/.test(msg)) {
+                const before = txt.slice(0, pos);
+                text += ' (line ' + (before.split('\n').length) + ', col ' + (pos - before.lastIndexOf('\n')) + ')';
+            }
+            return { text: text, pos: pos };
+        }
+        function jsonCheck(jump) {
+            const txt = jsonInput.value;
+            if (!txt.trim()) { jsonStatus.textContent = ''; return null; }
+            try {
+                const v = JSON.parse(txt);
+                const kind = Array.isArray(v) ? 'array · ' + v.length + ' item' + (v.length === 1 ? '' : 's')
+                    : (v && typeof v === 'object') ? 'object · ' + Object.keys(v).length + ' key' + (Object.keys(v).length === 1 ? '' : 's')
+                    : typeof v;
+                jsonStatus.className = 'ok text-[11px]';
+                jsonStatus.textContent = '✓ Valid JSON · ' + kind + ' · ' + fmtBytes(JSON.stringify(v).length) + ' minified';
+                return { v: v };
+            } catch (e) {
+                const info = jsonErrorInfo(txt, e);
+                jsonStatus.className = 'bad text-[11px]';
+                jsonStatus.textContent = '✗ ' + info.text;
+                if (jump && info.pos >= 0) {
+                    jsonInput.focus();
+                    try { jsonInput.setSelectionRange(info.pos, Math.min(info.pos + 1, txt.length)); } catch (err) { /* ignore */ }
+                }
+                return null;
+            }
+        }
+        function jsonIndentArg() { const v = $('jsonIndent').value; return v === 'tab' ? '\t' : parseInt(v, 10); }
+        function jsonApply(fn) {
+            const r = jsonCheck(true);
+            if (!r) { if (!jsonInput.value.trim()) showToast('Nothing to format'); return; }
+            jsonInput.value = fn(r.v);
+            jsonCheck(false);
+        }
+        $('btnFormatJson').addEventListener('click', () => jsonApply((v) => JSON.stringify(v, null, jsonIndentArg())));
+        $('btnMinifyJson').addEventListener('click', () => jsonApply((v) => JSON.stringify(v)));
+        $('btnSortJson').addEventListener('click', () => jsonApply((v) => JSON.stringify(sortKeys(v), null, jsonIndentArg())));
+        $('btnCopyJson').addEventListener('click', () => copyText(jsonInput.value, 'JSON'));
+        $('btnClearJson').addEventListener('click', () => { jsonInput.value = ''; jsonStatus.textContent = ''; jsonInput.focus(); });
+        $('btnEditJson').addEventListener('click', () => { if (!jsonInput.value.trim()) { showToast('Nothing to send'); return; } sendToEditor('data.json', jsonInput.value); });
+        $('btnPasteJson').addEventListener('click', async () => {
+            try { jsonInput.value = await navigator.clipboard.readText(); jsonCheck(true); }
+            catch (e) { showToast('Clipboard blocked — long-press the box and paste'); }
+        });
+        jsonInput.addEventListener('input', debounce(() => jsonCheck(false), 250));
+
+        /* timestamp */
+        const tsRows = {};
+        [['sec', 'Unix seconds'], ['ms', 'Unix milliseconds'], ['iso', 'ISO 8601 (UTC)'], ['local', 'Local time'], ['rel', 'Relative']].forEach((p) => { tsRows[p[0]] = outRow($('tsRows'), p[1]); });
+        function tsParse(s) {
+            s = s.trim();
+            if (!s) return null;
+            if (/^-?\d+(\.\d+)?$/.test(s)) {
+                let n = parseFloat(s);
+                const abs = Math.abs(n);
+                let unit;
+                if (abs >= 1e17) { n = n / 1e6; unit = 'nanoseconds'; }
+                else if (abs >= 1e14) { n = n / 1e3; unit = 'microseconds'; }
+                else if (abs >= 1e11) { unit = 'milliseconds'; }
+                else { n = n * 1000; unit = 'seconds'; }
+                return { ms: n, unit: unit };
+            }
+            const d = new Date(s);
+            return isNaN(d.getTime()) ? undefined : { ms: d.getTime(), unit: 'date string' };
+        }
+        function tsUpdate() {
+            const note = $('tsNote');
+            const r = tsParse($('tsInput').value);
+            Object.keys(tsRows).forEach((k) => { tsRows[k].value = ''; });
+            if (r === null) { note.textContent = ''; return; }
+            const d = r === undefined ? null : new Date(r.ms);
+            if (!d || isNaN(d.getTime())) { note.className = 'bad text-[11px]'; note.textContent = 'Could not understand that value.'; return; }
+            note.className = 'sub';
+            note.textContent = 'Read as ' + r.unit;
+            tsRows.sec.value = String(Math.floor(r.ms / 1000));
+            tsRows.ms.value = String(Math.round(r.ms));
+            tsRows.iso.value = d.toISOString();
+            tsRows.local.value = d.toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'long' });
+            tsRows.rel.value = relTime(r.ms - Date.now());
+        }
+        $('tsInput').addEventListener('input', tsUpdate);
+        $('btnTsNow').addEventListener('click', () => { $('tsInput').value = String(Date.now()); tsUpdate(); });
+
+        /* regex */
+        function rxRun() {
+            const pat = $('rxPattern').value;
+            const txt = $('rxText').value;
+            const st = $('rxStatus'), pv = $('rxPreview'), ls = $('rxList');
+            const flags = Array.prototype.filter.call(document.querySelectorAll('.rx-flag'), (c) => c.checked).map((c) => c.value).join('');
+            pv.classList.add('hidden'); ls.classList.add('hidden');
+            if (!pat) { st.textContent = ''; return; }
+            let re;
+            try { re = new RegExp(pat, flags); }
+            catch (e) { st.className = 'bad text-[11px]'; st.textContent = e.message; return; }
+            const matches = [];
+            if (re.global) {
+                let m, guard = 0;
+                while ((m = re.exec(txt)) && guard++ < 2000) { matches.push(m); if (m[0] === '') re.lastIndex++; }
+            } else {
+                const m = re.exec(txt);
+                if (m) matches.push(m);
+            }
+            if (!matches.length) { st.className = 'warn text-[11px]'; st.textContent = 'No matches'; return; }
+            st.className = 'ok text-[11px]';
+            st.textContent = matches.length + ' match' + (matches.length === 1 ? '' : 'es') + (matches.length >= 2000 ? ' (stopped at 2000)' : '');
+            let html = '', last = 0;
+            matches.forEach((m) => {
+                if (m[0] === '' || m.index < last) return;
+                html += esc(txt.slice(last, m.index)) + '<mark>' + esc(m[0]) + '</mark>';
+                last = m.index + m[0].length;
+            });
+            html += esc(txt.slice(last));
+            pv.innerHTML = html;
+            pv.classList.remove('hidden');
+            ls.innerHTML = matches.slice(0, 50).map((m, i) => {
+                let line = '<div><b>#' + (i + 1) + '</b> @' + m.index + ': ' + esc(JSON.stringify(m[0])) + '</div>';
+                for (let g = 1; g < m.length; g++) line += '<div class="sub" style="padding-left:1rem">$' + g + ': ' + esc(m[g] === undefined ? 'undefined' : JSON.stringify(m[g])) + '</div>';
+                if (m.groups) Object.keys(m.groups).forEach((k) => { line += '<div class="sub" style="padding-left:1rem">' + esc(k) + ': ' + esc(m.groups[k] === undefined ? 'undefined' : JSON.stringify(m.groups[k])) + '</div>'; });
+                return line;
+            }).join('') + (matches.length > 50 ? '<div class="sub">... ' + (matches.length - 50) + ' more</div>' : '');
+            ls.classList.remove('hidden');
+        }
+        const rxSoon = debounce(rxRun, 150);
+        $('rxPattern').addEventListener('input', rxSoon);
+        $('rxText').addEventListener('input', rxSoon);
+        document.querySelectorAll('.rx-flag').forEach((c) => c.addEventListener('change', rxRun));
+
+        /* environment */
+        let envReport = '';
+        async function collectEnv() {
+            const nav = navigator;
+            const na = '—';
+            const conn = nav.connection || nav.mozConnection || nav.webkitConnection;
+            const mq = (q) => { try { return window.matchMedia(q).matches; } catch (e) { return false; } };
+            let dm = 'Browser tab';
+            if (nav.standalone || mq('(display-mode: standalone)')) dm = 'Standalone (installed)';
+            else if (mq('(display-mode: fullscreen)')) dm = 'Fullscreen';
+            else if (mq('(display-mode: minimal-ui)')) dm = 'Minimal UI';
+            let sw = 'Unsupported', swScope = na;
+            if ('serviceWorker' in nav) {
+                try {
+                    const regs = await nav.serviceWorker.getRegistrations();
+                    if (regs.length) {
+                        sw = nav.serviceWorker.controller ? 'Active, controlling this page' : 'Registered (reload to take control)';
+                        swScope = regs[0].scope.replace(location.origin, '') || '/';
+                    } else { sw = 'Not registered'; }
+                } catch (e) { sw = 'Unavailable'; }
+            }
+            let cacheInfo = na;
+            try { if (window.caches) { const k = await caches.keys(); cacheInfo = k.length ? k.length + ' (' + k.join(', ') + ')' : 'None'; } } catch (e) { /* ignore */ }
+            let est = null, persisted = na;
+            try {
+                if (nav.storage && nav.storage.estimate) est = await nav.storage.estimate();
+                if (nav.storage && nav.storage.persisted) persisted = (await nav.storage.persisted()) ? 'Yes' : 'No';
+            } catch (e) { /* ignore */ }
+            let battery = na;
+            try { if (nav.getBattery) { const b = await nav.getBattery(); battery = Math.round(b.level * 100) + '%' + (b.charging ? ' (charging)' : ''); } } catch (e) { /* ignore */ }
+            let tz = na;
+            try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || na; } catch (e) { /* ignore */ }
+            const off = -new Date().getTimezoneOffset();
+            const offTxt = 'UTC' + (off >= 0 ? '+' : '-') + String(Math.floor(Math.abs(off) / 60)).padStart(2, '0') + ':' + String(Math.abs(off) % 60).padStart(2, '0');
+            let lsCount = na;
+            try { lsCount = String(localStorage.length); } catch (e) { /* ignore */ }
+            const connTxt = conn ? [conn.effectiveType, conn.downlink != null ? conn.downlink + ' Mbps' : '', conn.rtt != null ? conn.rtt + ' ms' : '', conn.saveData ? 'data saver' : ''].filter(Boolean).join(' · ') : na;
+            return [
+                { title: 'Screen & Display', rows: [
+                    ['Viewport', window.innerWidth + ' × ' + window.innerHeight + ' px'],
+                    ['Screen', screen.width + ' × ' + screen.height + ' px'],
+                    ['Pixel ratio', (window.devicePixelRatio || 1) + '×'],
+                    ['Orientation', (screen.orientation && screen.orientation.type) || (window.innerWidth > window.innerHeight ? 'landscape' : 'portrait')],
+                    ['Touch points', String(nav.maxTouchPoints || 0)],
+                    ['Color scheme', mq('(prefers-color-scheme: dark)') ? 'Dark' : 'Light'],
+                    ['Reduced motion', mq('(prefers-reduced-motion: reduce)') ? 'Yes' : 'No'],
+                    ['Display mode', dm]
+                ] },
+                { title: 'Network & System', rows: [
+                    ['Online', nav.onLine ? 'Yes' : 'No'],
+                    ['Connection', connTxt],
+                    ['Language', (nav.languages && nav.languages.length ? nav.languages.slice(0, 3).join(', ') : nav.language) || na],
+                    ['Time zone', tz + ' (' + offTxt + ')'],
+                    ['Platform', (nav.userAgentData && nav.userAgentData.platform) || nav.platform || na],
+                    ['CPU cores', String(nav.hardwareConcurrency || na)],
+                    ['Device memory', nav.deviceMemory ? '≥ ' + nav.deviceMemory + ' GB' : na],
+                    ['Battery', battery],
+                    ['Secure context', window.isSecureContext ? 'Yes' : 'No']
+                ] },
+                { title: 'PWA & Storage', rows: [
+                    ['Service worker', sw],
+                    ['SW scope', swScope],
+                    ['Caches', cacheInfo],
+                    ['Storage used', est ? fmtBytes(est.usage || 0) + (est.quota ? ' of ' + fmtBytes(est.quota) : '') : na],
+                    ['Persistent', persisted],
+                    ['localStorage keys', lsCount]
+                ] },
+                { title: 'Browser', rows: [['User agent', nav.userAgent]] }
+            ];
+        }
+        async function refreshEnv() {
+            const groups = await collectEnv();
+            $('envGrid').innerHTML = groups.map((g) =>
+                '<div class="rounded-2xl border border-zinc-800 bg-black/40 p-3"><div class="sub font-bold uppercase tracking-wider mb-1">' + esc(g.title) + '</div>' +
+                g.rows.map((r) => '<div class="kv"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>').join('') + '</div>').join('');
+            envReport = 'Beaver Dam environment report\n' + new Date().toString() + '\n\n' +
+                groups.map((g) => g.title + '\n' + g.rows.map((r) => '  ' + r[0] + ': ' + r[1]).join('\n')).join('\n\n') + '\n';
+        }
+        $('btnEnvRefresh').addEventListener('click', () => { refreshEnv(); renderStorage(); showToast('Refreshed'); });
+        $('btnEnvCopy').addEventListener('click', async () => { if (!envReport) await refreshEnv(); copyText(envReport, 'Report'); });
+
+        /* storage & cache */
+        const KEY_NOTES = { bd_editor_v1: 'Editor drafts', bd_pwa_v1: 'PWA Studio settings', bd_accent_color: 'Accent color', bd_app_theme: 'Theme', bd_tab: 'Last open tab' };
+        async function renderStorage() {
+            const bar = $('stoBar'), txt = $('stoText');
+            try {
+                const e = await navigator.storage.estimate();
+                const pct = e.quota ? (e.usage / e.quota) * 100 : 0;
+                bar.style.width = (pct > 0 ? Math.max(pct, 1) : 0).toFixed(2) + '%';
+                txt.textContent = fmtBytes(e.usage) + ' used of ' + fmtBytes(e.quota) + ' (' + pct.toFixed(2) + '%)';
+            } catch (e) { txt.textContent = 'Storage estimate unavailable in this browser.'; }
+            const list = $('stoKeys');
+            list.innerHTML = '';
+            let keys = [];
+            try { keys = Object.keys(localStorage).sort(); } catch (e) { /* ignore */ }
+            if (!keys.length) { list.innerHTML = '<div class="sub">No localStorage keys.</div>'; return; }
+            keys.forEach((k) => {
+                let size = 0;
+                try { size = new Blob([localStorage.getItem(k) || '']).size; } catch (e) { /* ignore */ }
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 rounded-xl border border-zinc-800 bg-black/40 px-3 py-2';
+                const info = document.createElement('div');
+                info.className = 'min-w-0 flex-1';
+                const name = document.createElement('div');
+                name.className = 'text-[11px] font-mono truncate';
+                name.textContent = k;
+                const meta = document.createElement('div');
+                meta.className = 'sub';
+                meta.textContent = fmtBytes(size) + (KEY_NOTES[k] ? ' · ' + KEY_NOTES[k] : '');
+                info.appendChild(name);
+                info.appendChild(meta);
+                const del = document.createElement('button');
+                del.className = 'btn btn-sm btn-danger';
+                del.innerHTML = '<i class="fa-solid fa-trash"></i>';
+                del.setAttribute('aria-label', 'Delete ' + k);
+                del.addEventListener('click', () => {
+                    if (!confirm('Delete "' + k + '"?' + (KEY_NOTES[k] ? '\n(' + KEY_NOTES[k] + ')' : ''))) return;
+                    try { localStorage.removeItem(k); } catch (e) { /* ignore */ }
+                    renderStorage();
+                    refreshEnv();
+                });
+                row.appendChild(info);
+                row.appendChild(del);
+                list.appendChild(row);
+            });
+        }
+        async function unregisterWorkers() {
+            if (!navigator.serviceWorker) return 0;
+            const rs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(rs.map((r) => r.unregister()));
+            return rs.length;
+        }
+        $('stoClearCache').addEventListener('click', async () => {
+            if (!confirm('Clear the offline cache and reload? Your drafts and settings are kept.')) return;
+            try {
+                if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.map((k) => caches.delete(k))); }
+                await unregisterWorkers();
+            } catch (e) { showToast('Could not clear everything'); }
+            location.reload();
+        });
+        $('stoUnreg').addEventListener('click', async () => {
+            try { const n = await unregisterWorkers(); showToast(n ? 'Service worker unregistered' : 'No service worker found'); } catch (e) { showToast('Could not unregister'); }
+            refreshEnv();
+        });
+        $('stoPersist').addEventListener('click', async () => {
+            try {
+                if (!(navigator.storage && navigator.storage.persist)) { showToast('Not supported in this browser'); return; }
+                showToast((await navigator.storage.persist()) ? 'Storage is now persistent' : 'Browser declined — try after installing the app');
+            } catch (e) { showToast('Request failed'); }
+            refreshEnv();
+        });
+        $('stoWipe').addEventListener('click', () => {
+            if (!confirm('Erase ALL local data for this app?\n\nThis deletes your editor drafts and every setting. It cannot be undone.')) return;
+            try { localStorage.clear(); } catch (e) { /* ignore */ }
+            location.reload();
+        });
+
+        /* only refresh live stats while the Dev Tools page is showing */
+        function updateInspectorStats() {
+            const v = $('view-inspector');
+            if (v && !v.classList.contains('hidden')) { refreshEnv(); renderStorage(); }
+        }
+        window.addEventListener('online', updateInspectorStats);
+        window.addEventListener('offline', updateInspectorStats);
+        window.addEventListener('orientationchange', debounce(updateInspectorStats, 250));
+
+        /* remember the open tab, refresh Dev Tools when it opens */
+        window.onTabShown = (t) => {
+            store.set('bd_tab', t);
+            if (t === 'inspector') { refreshEnv(); renderStorage(); }
+        };
+        (function restoreTab() {
+            const t = store.get('bd_tab', 'ide');
+            if (t && t !== 'ide' && document.querySelector('#navTabs [data-tab="' + t + '"]')) goTab(t);
+        })();
+
+        /* ---------- Modals ---------- */
+        document.getElementById('openSettingsBtn').addEventListener('click', () => {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        });
+
+        document.querySelectorAll('.closeModalBtn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('settingsModal').classList.add('hidden');
+                document.getElementById('previewModal').classList.add('hidden');
+            });
+        });
+
+        /* ---------- Startup ---------- */
+        window.addEventListener('DOMContentLoaded', () => {
+            initPreferences();
+            updateInspectorStats();
+            window.addEventListener('resize', updateInspectorStats);
+        });
+    </script>
+</body>
+</html>

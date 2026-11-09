@@ -1,0 +1,6 @@
+{
+  "appId": "com.reaper357.beaverdam",
+  "appName": "beaver-dam",
+  "webDir": "www"
+  "bundledWebRuntime": false
+}
